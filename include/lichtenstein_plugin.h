@@ -43,17 +43,45 @@ typedef struct {
 	// Plugin version
 	uint32_t version;
 
-	// Plugin name
+	// (Required) Plugin name
 	const char *name;
-	// Author name
+	// (Required) Author name
 	const char *author;
-	// License
-	const char *licence;
-	// Website for further information about plugin
+	// (Required) License
+	const char *license;
+	// (Required) Website for further information about plugin
 	const char *url;
+	// Build number of the plugin
+	const char *build;
+	// date/time string when this plugin was compiled
+	const char *compiledOn;
 
-	// Function used to instantiate the plugin
-	void* (*create)(PluginHandler *);
+	// Function used to initialize the plugin
+	void (*init)(PluginHandler *);
 } lichtenstein_plugin_t;
+
+/**
+ * Prefix symbols that you would like to be exported outside of the plugin with
+ * this macro.
+*/
+#if defined _WIN32 || defined __CYGWIN__
+	#ifdef BUILDING_DLL
+		#ifdef __GNUC__
+			#define PLUGIN_EXPORT __attribute__ ((dllexport))
+		#else
+			#define PLUGIN_EXPORT __declspec(dllexport)
+		#endif
+	#else
+		#ifdef __GNUC__
+			#define PLUGIN_EXPORT __attribute__ ((dllimport))
+		#else
+			#define PLUGIN_EXPORT __declspec(dllimport)
+		#endif
+	#endif
+	#define PLUGIN_PRIVATE
+#else
+	#define PLUGIN_EXPORT __attribute__ ((visibility ("default")))
+	#define PLUGIN_PRIVATE  __attribute__ ((visibility ("hidden")))
+#endif
 
 #endif
