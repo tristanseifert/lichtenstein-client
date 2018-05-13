@@ -2,6 +2,7 @@
 #define LICHTENSTEIN_PLUGIN_H
 
 #include "PluginHandler.h"
+#include "OutputPlugin.h"
 
 #include <cstdint>
 
@@ -58,6 +59,8 @@ typedef struct {
 
 	// Function used to initialize the plugin
 	void (*init)(PluginHandler *);
+	// Function used to shut down the plugin
+	void (*deinit)(PluginHandler *);
 } lichtenstein_plugin_t;
 
 /**

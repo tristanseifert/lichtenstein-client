@@ -11,7 +11,7 @@ OBJS := $(SRCS:%=$(BUILD_DIR)/%.o)
 DEPS := $(OBJS:.o=.d)
 
 # libraries to link against
-LIBS := stdc++ glog sqlite3
+LIBS := stdc++ glog sqlite3 uuid
 LIBS_DIRS :=
 
 LIBS_FLAGS := $(addprefix -L,$(LIBS_DIRS)) $(addprefix -l,$(LIBS))

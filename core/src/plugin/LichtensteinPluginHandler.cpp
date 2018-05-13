@@ -6,6 +6,8 @@
 #include <sys/stat.h>
 #include <dlfcn.h>
 
+#include <uuid/uuid.h>
+
 /**
  * Sets up the plugin handler and loads the plugins.
  */
@@ -22,7 +24,8 @@ LichtensteinPluginHandler::LichtensteinPluginHandler(INIReader *_cfg) : config(_
  * Unloads all plugins cleanly.
  */
 LichtensteinPluginHandler::~LichtensteinPluginHandler() {
-
+	// call plugin destructors
+	this->callPluginDestructors();
 }
 
 
@@ -30,14 +33,21 @@ LichtensteinPluginHandler::~LichtensteinPluginHandler() {
 /**
  * Add an output plugin with the given UUID to the registry.
  */
-int LichtensteinPluginHandler::registerOutputPlugin(void *uuid, void *pluginClass) {
+
+int LichtensteinPluginHandler::registerOutputPlugin(const uuid_t &uuid, output_plugin_factory_t factory) {
+	// get UUID as string
+	char uuidStr[36];
+	uuid_unparse_upper(uuid, (char *) &uuidStr);
+
+	LOG(INFO) << "Registering plugin factory method for UUID " << uuidStr;
+
 	return -1;
 }
 
 /**
  * Adds an input plugin with the given UUID to the registry.
  */
-int LichtensteinPluginHandler::registerInputPlugin(void *uuid, void *pluginClass) {
+int LichtensteinPluginHandler::registerInputPlugin(const uuid_t &uuid, input_plugin_factory_t factory) {
 	return -1;
 }
 
@@ -194,5 +204,42 @@ void LichtensteinPluginHandler::callPluginConstructors(void) {
 
 		LOG(INFO) << "Initializing plugin \"" << info->name << "\" from " << path;
 		info->init(this);
+	}
+}
+/**
+ * Calls the de-initializer functions for all loaded plugins.
+ */
+void LichtensteinPluginHandler::callPluginDestructors(void) {
+	void *handle;
+	std::string path;
+	int err = 0;
+
+	// iterate over all plugins we loaded before
+	for(auto tuple : this->pluginHandles) {
+		std::tie(path, handle) = tuple;
+
+		// locate the info symbol
+		void *infoAddr = dlsym(handle, "plugin_info");
+
+		if(infoAddr == nullptr) {
+			// we shouldn't ever get here
+			LOG(FATAL) << "Plugin with handle 0x" << std::hex << handle
+				<< " suddenly lost its info struct...";
+
+			continue;
+		}
+
+		// get the info and call the function
+		lichtenstein_plugin_t *info = static_cast<lichtenstein_plugin_t *>(infoAddr);
+
+		LOG(INFO) << "De-initializing plugin \"" << info->name << "\" from " << path;
+		info->deinit(this);
+
+		// unload the object
+		err = dlclose(handle);
+
+		if(err != 0) {
+			LOG(WARNING) << "Couldn't unload " << path << ": " << dlerror();
+		}
 	}
 }

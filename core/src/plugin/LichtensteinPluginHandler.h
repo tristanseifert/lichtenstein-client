@@ -10,6 +10,8 @@
 #include <vector>
 #include <tuple>
 
+#include <uuid/uuid.h>
+
 #include <INIReader.h>
 
 class LichtensteinPluginHandler : public PluginHandler {
@@ -19,8 +21,8 @@ class LichtensteinPluginHandler : public PluginHandler {
 
 	// plugin API
 	public:
-		virtual int registerOutputPlugin(void *uuid, void *pluginClass);
-		virtual int registerInputPlugin(void *uuid, void *pluginClass);
+		virtual int registerOutputPlugin(const uuid_t &uuid, output_plugin_factory_t factory);
+		virtual int registerInputPlugin(const uuid_t &uuid, input_plugin_factory_t factory);
 
 	private:
 		enum {
@@ -40,6 +42,7 @@ class LichtensteinPluginHandler : public PluginHandler {
 		int isPluginCompatible(void *handle);
 
 		void callPluginConstructors(void);
+		void callPluginDestructors(void);
 
 	private:
 		// handles returned by dlopen for these plugins
