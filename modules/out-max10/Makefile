@@ -2,7 +2,7 @@
 TARGET_EXEC ?= out-max10.so
 
 # where the objects and source files go
-BUILD_DIR ?= ../../build/modules
+BUILD_DIR ?= ../../build/out_modules
 SRC_DIRS ?= ./src
 
 # input files

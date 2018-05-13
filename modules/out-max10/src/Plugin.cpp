@@ -15,7 +15,7 @@ PLUGIN_PRIVATE void max10_init(PluginHandler *handler) {
 }
 
 // export the struct
-PLUGIN_EXPORT lichtenstein_plugin_t info = {
+PLUGIN_EXPORT lichtenstein_plugin_t plugin_info = {
 	.magic = PLUGIN_MAGIC,
 	.clientVersion = PLUGIN_CLIENT_VERSION,
 	.type = kPluginTypeOutput,

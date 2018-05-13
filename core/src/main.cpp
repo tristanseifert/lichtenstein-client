@@ -8,9 +8,14 @@
 #include <iostream>
 #include <atomic>
 
+#include "LichtensteinPluginHandler.h"
+
 #include <signal.h>
 
 using namespace std;
+
+// various client components
+LichtensteinPluginHandler *plugin = nullptr;
 
 // when set to false, the client terminates
 atomic_bool keepRunning;
@@ -74,10 +79,18 @@ int main(int argc, const char *argv[]) {
 
 	sigaction(SIGINT, &sigIntHandler, nullptr);
 
+	// set up the various components
+	plugin = new LichtensteinPluginHandler(configReader);
+
 	// wait for a signal
 	while(keepRunning) {
 		pause();
 	}
+
+	// tear down
+
+	// lastly, clean up plugins
+	delete plugin;
 }
 
 /**

@@ -1,5 +1,5 @@
-#ifndef LICHTENSTEIN_PLUGINHANDLER_H
-#define LICHTENSTEIN_PLUGINHANDLER_H
+#ifndef PLUGINHANDLER_H
+#define PLUGINHANDLER_H
 
 /**
  * Plugin handler class exported to each plugin.
@@ -12,6 +12,8 @@ class PluginHandler {
 
 	// functions plugins can call
 	public:
+		virtual int registerOutputPlugin(void *uuid, void *pluginClass) = 0;
+		virtual int registerInputPlugin(void *uuid, void *pluginClass) = 0;
 };
 
 #endif
