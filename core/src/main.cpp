@@ -9,6 +9,7 @@
 #include <atomic>
 
 #include "LichtensteinPluginHandler.h"
+#include "ProtocolHandler.h"
 
 #include <signal.h>
 
@@ -16,6 +17,7 @@ using namespace std;
 
 // various client components
 LichtensteinPluginHandler *plugin = nullptr;
+ProtocolHandler *proto = nullptr;
 
 // when set to false, the client terminates
 atomic_bool keepRunning;
@@ -81,6 +83,7 @@ int main(int argc, const char *argv[]) {
 
 	// set up the various components
 	plugin = new LichtensteinPluginHandler(configReader);
+	proto = new ProtocolHandler(configReader);
 
 	// wait for a signal
 	while(keepRunning) {
@@ -88,6 +91,9 @@ int main(int argc, const char *argv[]) {
 	}
 
 	// tear down
+	proto->stop();
+
+	delete proto;
 
 	// lastly, clean up plugins
 	delete plugin;
