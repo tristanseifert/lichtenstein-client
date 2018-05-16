@@ -4,7 +4,14 @@
 #include <atomic>
 #include <thread>
 
+#include <cstddef>
+#include <cstdint>
+
 #include <INIReader.h>
+#include <cpptime.h>
+
+struct lichtenstein_header;
+typedef struct lichtenstein_header lichtenstein_header_t;
 
 class ProtocolHandler {
 	public:
@@ -28,9 +35,17 @@ class ProtocolHandler {
 
 		void handlePacket(void *, size_t, struct msghdr *);
 		void sendAnnouncement(void);
+		void getMacAddress(uint8_t *);
+		void getIpAddress(char *, size_t);
 
 		void setUpSocket(void);
 		void cleanUpSocket(void);
+
+		void sendStatusResponse(lichtenstein_header_t *, struct in_addr *);
+		int sendPacketToHost(void *, size_t, struct in_addr *);
+
+	private:
+		static unsigned int getUptime(void);
 
 	private:
 		INIReader *config = nullptr;
@@ -42,6 +57,11 @@ class ProtocolHandler {
 
 		std::atomic_bool run = true;
 		std::thread *worker = nullptr;
+
+		CppTime::Timer timer;
+
+	private:
+		size_t packetsWithInvalidCRC = 0;
 };
 
 #endif

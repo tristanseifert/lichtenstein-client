@@ -4,3 +4,6 @@
 [submodule "libs/cxxopts"]
 	path = libs/cxxopts
 	url = git@github.com:jarro2783/cxxopts.git
+[submodule "libs/cpptime"]
+	path = libs/cpptime
+	url = git@github.com:eglimi/cpptime.git

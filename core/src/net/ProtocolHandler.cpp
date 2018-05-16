@@ -4,7 +4,10 @@
 #include "lichtenstein_proto.h"
 
 #include <glog/logging.h>
+#include <INIReader.h>
+#include <cpptime.h>
 
+#include <chrono>
 #include <cstring>
 
 #include <sys/types.h>
@@ -15,6 +18,13 @@
 #include <unistd.h>
 #include <sys/select.h>
 #include <sys/fcntl.h>
+
+#include <sys/ioctl.h>
+#include <net/if.h>
+#include <ifaddrs.h>
+
+#include <sys/sysctl.h>
+
 
 // for some platforms (macOS) HOST_NAME_MAX is not defined
 #ifndef HOST_NAME_MAX
@@ -149,8 +159,17 @@ void ProtocolHandler::workerEntry(void) {
 
 	char *controlBuf = new char[kControlBufSz];
 
-	// send an announcement when the thread becomes alive
-	this->sendAnnouncement();
+	// send an announcement when the thread becomes alive and alloc timer
+	double initial = this->config->GetReal("client", "announcementIntervalInitial", 10);
+	const unsigned long initialLong = static_cast<unsigned long>(initial * 1000);
+
+	double subsequent = this->config->GetReal("client", "announcementInterval", 10);
+	const unsigned long subsequentLong = static_cast<unsigned long>(subsequent * 1000);
+
+	auto announcementTimer = this->timer.add(std::chrono::milliseconds(initialLong),
+	[this](CppTime::timer_id) {
+		this->sendAnnouncement();
+	}, std::chrono::milliseconds(subsequentLong));
 
 	// main loop; wait on socket and pipe
 	while(this->run) {
@@ -244,6 +263,9 @@ void ProtocolHandler::workerEntry(void) {
 		}
 	}
 
+	// clear the timer
+	this->timer.remove(announcementTimer);
+
 	// clean up
 	this->cleanUpSocket();
 }
@@ -255,8 +277,9 @@ void ProtocolHandler::handlePacket(void *packet, size_t length, struct msghdr *m
 	int err;
 	struct cmsghdr *cmhdr;
 
-	static const socklen_t destAddrSz = 128;
-	char destAddr[destAddrSz];
+	static const socklen_t srcAddrSz = 128;
+	char srcAddr[srcAddrSz];
+	struct in_addr srcAddrStruct;
 
 	bool isMulticast = false;
 
@@ -272,14 +295,17 @@ void ProtocolHandler::handlePacket(void *packet, size_t length, struct msghdr *m
 			isMulticast = ((addr >> 28) == 0x0E);
 
 			// convert the destination address
-			const char *ptr = inet_ntop(AF_INET, &info->ipi_addr, destAddr, destAddrSz);
+			const char *ptr = inet_ntop(AF_INET, &info->ipi_addr, srcAddr, srcAddrSz);
 			CHECK(ptr != nullptr) << "Couldn't convert destination address";
+
+			// copy the address
+			memcpy(&srcAddrStruct, &info->ipi_addr, sizeof(srcAddrStruct));
 		}
     }
 
 	// if it's a multicast packet, pass it to the discovery handler
 	if(isMulticast) {
-		VLOG(2) << "Received multicast packet: forwarding to discovery handler";
+		LOG(INFO) << "Received multicast packet: ignoring";
 	}
 	// it's not a multicast packet. neat
 	else {
@@ -289,6 +315,12 @@ void ProtocolHandler::handlePacket(void *packet, size_t length, struct msghdr *m
 		pErr = LichtensteinUtils::validatePacket(packet, length);
 
 		if(err != LichtensteinUtils::kNoError) {
+			// is it a checksum error?
+			if(err == LichtensteinUtils::kInvalidChecksum) {
+				// if so, increment that counter
+				this->packetsWithInvalidCRC++;
+			}
+
 			LOG(ERROR) << "Couldn't verify unicast packet: " << err;
 			return;
 		}
@@ -303,31 +335,134 @@ void ProtocolHandler::handlePacket(void *packet, size_t length, struct msghdr *m
 		if((header->flags & kFlagAck)) {
 			// TODO: handle acknowledgements
 		} else {
-			// TODO: handle all others
+			// is it a request (payload length = 0?)
+			if(header->payloadLength == 0) {
+				switch(header->opcode) {
+					// status request?
+					case kOpcodeNodeStatusReq:
+						this->sendStatusResponse(header, &srcAddrStruct);
+						break;
+
+					// unhandled requests
+					default:
+						LOG(INFO) << "Request for unimplemented opcode " << header->opcode;
+						break;
+				}
+			} else {
+				// these packets have data
+			}
 		}
 	}
 }
+
+
+
+/**
+ * Sends a status response packet.
+ */
+void ProtocolHandler::sendStatusResponse(lichtenstein_header_t *header, struct in_addr *source) {
+	int err;
+
+	// allocate the packet
+	size_t totalPacketLen = sizeof(lichtenstein_node_status_t);
+
+	lichtenstein_node_status_t *status = static_cast<lichtenstein_node_status_t *>(malloc(totalPacketLen));
+	memset(status, 0, totalPacketLen);
+
+	// get uptime
+	status->uptime = this->getUptime();
+
+	// get total and free memory (this only works on linux)
+#ifdef linux
+	struct sysinfo info;
+
+	// get the struct info
+	err = sysinfo(&info);
+	PLOG_IF(ERROR, err != 0) << "sysinfo failed";
+
+	unsigned int unitSz = info.mem_unit;
+
+	status->totalMem = (info.totalram * unitSz);
+	status->freeMem = (info.freeram * unitSz);
+#endif
+
+	// packets with invalid CRC
+	status->packetsWithInvalidCRC = this->packetsWithInvalidCRC;
+
+	// get CPU load (in percent)
+#ifdef linux
+	status->cpuUsagePercent = (info.loads[0] * 100);
+#endif
+
+	// prepare to send
+	LichtensteinUtils::populateHeader(status, kOpcodeNodeStatusReq);
+
+	status->header.flags |= kFlagAck;
+	status->header.flags |= kFlagResponse;
+
+	status->header.txn = header->txn;
+
+	LichtensteinUtils::convertToNetworkByteOrder(status, totalPacketLen);
+	LichtensteinUtils::applyChecksum(status, totalPacketLen);
+
+	// send
+	err = this->sendPacketToHost(status, totalPacketLen, source);
+	LOG_IF(ERROR, err != 0) << "Couldn't send packet: " << err;
+
+	// clean up
+	free(status);
+}
+
+/**
+ * Sends the specified data packet to the host whose address is specified.
+ */
+int ProtocolHandler::sendPacketToHost(void *data, size_t length, struct in_addr *dest) {
+	int err;
+
+	// prepare address
+	struct sockaddr_in addr;
+
+	// prefill it with the port
+	int port = this->config->GetInteger("client", "port", 7420);
+
+	memset(&addr, 0, sizeof(addr));
+	addr.sin_family = AF_INET;
+	addr.sin_port = htons(port);
+
+	// copy in the IP address
+	memcpy(&addr.sin_addr, dest, sizeof(addr.sin_addr));
+
+	// send the packet
+	err = sendto(this->announcementSocket, data, length,
+				 0, (struct sockaddr *) &addr, sizeof(addr));
+
+	// handle errors
+	if(err == -1) {
+		return errno;
+	}
+
+	// no errors, yay
+	return 0;
+}
+
+
 
 /**
  * Sends a node announcement packet.
  */
 void ProtocolHandler::sendAnnouncement(void) {
 	int err = 0;
-	struct sockaddr_in addr;
+	struct in_addr addr;
 
 	// set up the destination address of the multicast group
-	int port = this->config->GetInteger("client", "port", 7420);
 	string address = this->config->Get("client", "multicastGroup", "239.42.0.69");
 
-	memset(&addr, 0, sizeof(addr));
-	addr.sin_family = AF_INET;
-	addr.sin_port = htons(port);
-
-	err = inet_pton(AF_INET, address.c_str(), &addr.sin_addr.s_addr);
+	err = inet_pton(AF_INET, address.c_str(), &addr);
 	PLOG_IF(FATAL, err != 1) << "Couldn't convert IP address";
 
 	// get MAC address and hostname
 	uint8_t macAddr[6] = {0xd8, 0xde, 0xad, 0xbe, 0xef, 0x00};
+	this->getMacAddress(reinterpret_cast<uint8_t *>(&macAddr));
 
 	char hostname[HOST_NAME_MAX];
 	memset(hostname, 0, sizeof(hostname));
@@ -347,11 +482,34 @@ void ProtocolHandler::sendAnnouncement(void) {
 	announce->swVersion = kLichtensteinSWVersion;
 	announce->hwVersion = 0x00001000; // TODO: figure this out properly
 
-	// IP address and port
-	announce->port = port;
+	// get the port, then figure out how to get the IP address
+	announce->port = this->config->GetInteger("client", "port", 7420);;
 
-	// TODO: properly get IP address
-	inet_pton(AF_INET, "172.16.20.69", &announce->ip);
+	// figure out if we need to get the IP address from the config
+	std::string advertiseAddress = this->config->Get("client", "advertiseAddress", "0.0.0.0");
+
+	if(advertiseAddress != "0.0.0.0") {
+		err = inet_pton(AF_INET, advertiseAddress.c_str(), &announce->ip);
+
+		PLOG_IF(FATAL, err != 1) << "Couldn't convert address '" << advertiseAddress << "'";
+	} else {
+		std::string listenAddress = this->config->Get("client", "listen", "0.0.0.0");
+
+		// is the listen address non-null?
+		if(listenAddress != "0.0.0.0") {
+			// use the listen address instead.
+			err = inet_pton(AF_INET, listenAddress.c_str(), &announce->ip);
+
+			PLOG_IF(FATAL, err != 1) << "Couldn't convert address '" << listenAddress << "'";
+		} else {
+			// automatically detect the address
+			char addrBuffer[32];
+			this->getIpAddress(reinterpret_cast<char *>(&addrBuffer), sizeof(addrBuffer));
+
+			err = inet_pton(AF_INET, addrBuffer, &announce->ip);
+			PLOG_IF(FATAL, err != 1) << "Couldn't convert address '" << addrBuffer << "'";
+		}
+	}
 
 	// copy hostname and MAC address
 	announce->hostnameLen = hostnameLen;
@@ -372,12 +530,143 @@ void ProtocolHandler::sendAnnouncement(void) {
 	LichtensteinUtils::applyChecksum(announce, totalPacketLen);
 
 	// send it
-	err = sendto(this->announcementSocket, announce, totalPacketLen,
+	err = this->sendPacketToHost(announce, totalPacketLen, &addr);
+	LOG_IF(FATAL, err == -1) << "Couldn't send announcement: " << err;
+
+/*	err = sendto(this->announcementSocket, announce, totalPacketLen,
 				 0, (struct sockaddr *) &addr, sizeof(addr));
-	PLOG_IF(FATAL, err == -1) << "Couldn't send announcement";
+	PLOG_IF(FATAL, err == -1) << "Couldn't send announcement";*/
 
 	// clean up
 	free(announce);
+}
+
+
+
+/**
+ * Gets the MAC address of the primary interface.
+ */
+void ProtocolHandler::getMacAddress(uint8_t *addr) {
+#ifndef __APPLE__
+	// ioctls
+	struct ifreq ifr;
+	struct ifconf ifc;
+
+	struct ifreq* it = nullptr;
+	struct ifreq* end = nullptr;
+
+	// buffer for hardware addresses
+	const size_t bufSz = 1024;
+	char buf[bufSz];
+	int success = 0;
+
+	// create a socket to get interface info
+	int sock = ::socket(AF_INET, SOCK_DGRAM, IPPROTO_IP);
+	if(sock < 0) {
+		PLOG(ERROR) << "Couldn't create socket";
+		return;
+	}
+
+	// request a list of all interface layer addresses
+	ifc.ifc_buf = buf;
+	ifc.ifc_len = bufSz;
+
+	if(ioctl(sock, SIOCGIFCONF, &ifc) == -1) {
+		PLOG(ERROR) << "Couldn't get interface config struct";
+		goto done;
+	}
+
+	// prepare to iterate over them
+	it = ifc.ifc_req;
+	end = it + (ifc.ifc_len / sizeof(struct ifreq));
+
+	for (; it != end; ++it) {
+		// copy the interface name into the interface flag struct
+		strncpy(ifr.ifr_name, it->ifr_name, IFNAMSIZ);
+
+		// get flags of that device
+		if(ioctl(sock, SIOCGIFFLAGS, &ifr) == 0) {
+			// ignore loopback style interfaces
+			if(!(ifr.ifr_flags & IFF_LOOPBACK)) {
+
+// SIOCGIFHWADDR is not declared on macOS, so this function is a no-op
+#ifdef SIOCGIFHWADDR
+				// get the hardware address of that interface
+				if(ioctl(sock, SIOCGIFHWADDR, &ifr) == 0) {
+					success = 1;
+					break;
+				}
+#endif
+			}
+		} else {
+			PLOG(ERROR) << "Couldn't get interface flags for " << ifr.ifr_name;
+		}
+	}
+
+	// if success, copy the address
+#ifdef SIOCGIFHWADDR
+	if(success) {
+		memcpy(addr, ifr.ifr_hwaddr.sa_data, 6);
+	}
+#endif
+
+	// close socket
+done: ;
+	success = close(sock);
+	PLOG_IF(ERROR, success != 0) << "Couldn't close socket";
+
+#endif
+}
+
+/**
+ * Gets the IP address of the system.
+ *
+ * This is a really dumb approach because it just picks the first interface with
+ * an IPv4 address.
+ */
+void ProtocolHandler::getIpAddress(char *addrOut, size_t addrOutLen) {
+	struct ifaddrs *interfaces;
+	struct ifaddrs *current;
+	int err;
+
+	// get info
+	err = getifaddrs(&interfaces);
+
+	if(err != 0) {
+		PLOG(ERROR) << "Couldn't get address info";
+		return;
+	}
+
+	// iterate through it
+	current = interfaces;
+
+	while(current != nullptr) {
+		// ignore loopback interfaces
+		if(!(current->ifa_flags & IFF_LOOPBACK)) {
+			// get its address (if IPv4 address present)
+			if(current->ifa_addr->sa_family == AF_INET) {
+				char ipStr[INET_ADDRSTRLEN];
+
+				// convert address
+				struct sockaddr_in *addr = (struct sockaddr_in *) current->ifa_addr;
+
+				inet_ntop(AF_INET, &addr->sin_addr, ipStr, INET_ADDRSTRLEN);
+
+				// get info
+				VLOG(3) << "Interface name: " << current->ifa_name << " addr " << ipStr;
+
+				strncpy(addrOut, ipStr, addrOutLen);
+				goto done;
+			}
+		}
+
+		// go to next
+		current = current->ifa_next;
+	}
+
+	// clean up
+done: ;
+	freeifaddrs(interfaces);
 }
 
 
@@ -455,4 +744,35 @@ void ProtocolHandler::cleanUpSocket(void) {
 	// close the announcement socket
 	err = close(this->announcementSocket);
 	PLOG_IF(ERROR, err != 0) << "Couldn't close announcement socket";
+}
+
+
+
+/**
+ * Returns the system uptime, in seconds.
+ */
+unsigned int ProtocolHandler::getUptime(void) {
+	int err;
+
+	// parameters for the sysctl
+	int mib[2] = {CTL_KERN, KERN_BOOTTIME};
+
+	struct timeval boottime;
+	size_t size = sizeof(boottime);
+
+	// get current time to compare
+	time_t now;
+    time(&now);
+
+	// attempt to get the info
+	err = sysctl(mib, 2, &boottime, &size, NULL, 0);
+    if(err != -1 && boottime.tv_sec != 0) {
+		// subtract the times
+        return (now - boottime.tv_sec);
+    } else {
+		PLOG(ERROR) << "Can't get uptime: " << err;
+	}
+
+	// couldn't get uptime
+	return -1;
 }

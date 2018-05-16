@@ -60,7 +60,7 @@ typedef enum {
 /**
  * Packet header structure: every packet starts with this header.
  */
-typedef struct {
+typedef struct lichtenstein_header {
 	uint32_t magic;
 	uint32_t version;
 	uint32_t checksum;

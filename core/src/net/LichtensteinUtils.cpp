@@ -323,6 +323,7 @@ void LichtensteinUtils::populateHeader(void *data, uint16_t opcode) {
 	header->sequenceIndex = 0;
 	header->sequenceNumPackets = 0;
 
+	// insert random transaction number; if we need a meaningful one, it can be overridden
 	header->txn = std::rand();
 
 	// set a checksum flag
