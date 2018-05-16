@@ -23,7 +23,7 @@ class LichtensteinUtils {
 
 		static PacketErrors validatePacket(void *data, size_t length);
 
-		static PacketErrors applyChecksum(void *Data, size_t length);
+		static PacketErrors applyChecksum(void *data, size_t length);
 
 		static int convertToHostByteOrder(void *data, size_t length) {
 			return LichtensteinUtils::convertPacketByteOrder(data, true, length);

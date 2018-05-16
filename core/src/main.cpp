@@ -1,6 +1,9 @@
 /**
  * Main entrypoint for Lichtenstein client
  */
+#include "LichtensteinPluginHandler.h"
+#include "ProtocolHandler.h"
+
 #include <glog/logging.h>
 #include <cxxopts.hpp>
 #include "INIReader.h"
@@ -8,19 +11,20 @@
 #include <iostream>
 #include <atomic>
 
-#include "LichtensteinPluginHandler.h"
-#include "ProtocolHandler.h"
-
+#include <cstdint>
 #include <signal.h>
 
 using namespace std;
+
+// software version
+uint32_t kLichtensteinSWVersion = 0x00001000;
 
 // various client components
 LichtensteinPluginHandler *plugin = nullptr;
 ProtocolHandler *proto = nullptr;
 
 // when set to false, the client terminates
-atomic_bool keepRunning;
+atomic_bool keepRunning = true;
 
 // parsing of the config file
 INIReader *configReader = nullptr;
