@@ -55,7 +55,7 @@ class ProtocolHandler {
 		int workerPipeRead = -1;
 		int workerPipeWrite = -1;
 
-		std::atomic_bool run = true;
+		std::atomic_bool run;
 		std::thread *worker = nullptr;
 
 		CppTime::Timer timer;

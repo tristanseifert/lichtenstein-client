@@ -102,6 +102,9 @@ void ProtocolHandler::start(void) {
 	// make sure there's no existing thread
 	CHECK(this->worker == nullptr) << "Trying to start thread when it's already running";
 
+	// run
+	this->run = true;
+
 	// create a thread
 	this->worker = new std::thread(ProtocolHandlerThreadEntry, this);
 }

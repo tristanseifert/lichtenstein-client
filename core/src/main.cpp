@@ -26,7 +26,7 @@ ProtocolHandler *proto = nullptr;
 InputHandler *input = nullptr;
 
 // when set to false, the client terminates
-atomic_bool keepRunning = true;
+atomic_bool keepRunning;
 
 // parsing of the config file
 INIReader *configReader = nullptr;
