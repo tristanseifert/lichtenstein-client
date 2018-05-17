@@ -14,15 +14,15 @@ class OutputPlugin {
 		 	romDataLength(_romDataLength) {
 
 		}
-		~OutputPlugin() {
+		virtual ~OutputPlugin() {
 
 		}
 
 	// generic information API
 	public:
-		virtual const std::string name() = 0;
+		virtual const std::string name(void) = 0;
 
-		virtual const unsigned int maxChannels() = 0;
+		virtual const unsigned int maxChannels(void) = 0;
 		virtual int setEnabledChannels(unsigned int channels) = 0;
 
 		virtual bool isChannelBusy(unsigned int channel) = 0;

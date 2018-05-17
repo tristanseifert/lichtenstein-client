@@ -11,14 +11,14 @@ MAX10OutputPlugin::~MAX10OutputPlugin() {
 /**
  * Invokes the constructor for the plugin and returns it.
  */
-OutputPlugin *MAX10OutputPlugin::create(void *romData, size_t length) {
+OutputPlugin *MAX10OutputPlugin::create(PluginHandler *handler, void *romData, size_t length) {
 	return new MAX10OutputPlugin(romData, length);
 }
 
-const std::string MAX10OutputPlugin::name() {
+const std::string MAX10OutputPlugin::name(void) {
 	return "MAX10 FPGA Output Board";
 }
-const unsigned int MAX10OutputPlugin::maxChannels() {
+const unsigned int MAX10OutputPlugin::maxChannels(void) {
 	return 16;
 }
 

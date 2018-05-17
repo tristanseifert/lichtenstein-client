@@ -1,8 +1,8 @@
 # name of the target binary
-TARGET_EXEC ?= out-max10.so
+TARGET_EXEC ?= in-gpio.so
 
 # where the objects and source files go
-BUILD_DIR ?= ../../build/out_modules
+BUILD_DIR ?= ../../build/in_modules
 SRC_DIRS ?= ./src
 
 # input files

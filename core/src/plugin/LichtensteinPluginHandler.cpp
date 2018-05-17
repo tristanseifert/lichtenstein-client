@@ -41,14 +41,22 @@ int LichtensteinPluginHandler::registerOutputPlugin(const uuid_t &uuid, output_p
 
 	LOG(INFO) << "Registering plugin factory method for UUID " << uuidStr;
 
-	return -1;
+	this->outFactories[std::string(uuidStr)] = factory;
+	return 0;
 }
 
 /**
  * Adds an input plugin with the given UUID to the registry.
  */
 int LichtensteinPluginHandler::registerInputPlugin(const uuid_t &uuid, input_plugin_factory_t factory) {
-	return -1;
+	// get UUID as string
+	char uuidStr[36];
+	uuid_unparse_upper(uuid, (char *) &uuidStr);
+
+	LOG(INFO) << "Registering plugin factory method for UUID " << uuidStr;
+
+	this->inFactories[std::string(uuidStr)] = factory;
+	return 0;
 }
 
 

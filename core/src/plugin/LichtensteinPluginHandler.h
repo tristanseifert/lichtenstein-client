@@ -9,20 +9,47 @@
 #include <string>
 #include <vector>
 #include <tuple>
+#include <map>
 
 #include <uuid/uuid.h>
 
 #include <INIReader.h>
 
 class LichtensteinPluginHandler : public PluginHandler {
+	friend class InputHandler;
+
 	public:
 		LichtensteinPluginHandler(INIReader *config);
 		~LichtensteinPluginHandler();
 
 	// plugin API
 	public:
+		virtual INIReader *getConfig(void) {
+			return this->config;
+		}
+
 		virtual int registerOutputPlugin(const uuid_t &uuid, output_plugin_factory_t factory);
 		virtual int registerInputPlugin(const uuid_t &uuid, input_plugin_factory_t factory);
+
+	// API used by the rest of the server
+	protected:
+		output_plugin_factory_t getOutputFactoryByUUID(std::string uuid) const {
+			return this->outFactories.at(uuid);
+		}
+		OutputPlugin *initOutputPluginByUUID(std::string uuid, void *rom, size_t romLen) {
+			output_plugin_factory_t factory = this->getOutputFactoryByUUID(uuid);
+
+			return factory(this, rom, romLen);
+		}
+
+		input_plugin_factory_t getInputFactoryByUUID(std::string uuid) const {
+			return this->inFactories.at(uuid);
+		}
+		InputPlugin *initInputPluginByUUID(std::string uuid) {
+			input_plugin_factory_t factory = this->getInputFactoryByUUID(uuid);
+
+			return factory(this);
+		}
 
 	private:
 		enum {
@@ -47,6 +74,10 @@ class LichtensteinPluginHandler : public PluginHandler {
 	private:
 		// handles returned by dlopen for these plugins
 		std::vector<std::tuple<std::string, void *>> pluginHandles;
+
+		// factory methods for input/output plugins
+		std::map<std::string, output_plugin_factory_t> outFactories;
+		std::map<std::string, input_plugin_factory_t> inFactories;
 
 		INIReader *config = nullptr;
 };

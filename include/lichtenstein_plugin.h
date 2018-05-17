@@ -2,7 +2,9 @@
 #define LICHTENSTEIN_PLUGIN_H
 
 #include "PluginHandler.h"
+
 #include "OutputPlugin.h"
+#include "InputPlugin.h"
 
 #include <cstdint>
 

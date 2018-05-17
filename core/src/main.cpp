@@ -3,6 +3,7 @@
  */
 #include "LichtensteinPluginHandler.h"
 #include "ProtocolHandler.h"
+#include "InputHandler.h"
 
 #include <glog/logging.h>
 #include <cxxopts.hpp>
@@ -22,6 +23,7 @@ uint32_t kLichtensteinSWVersion = 0x00001000;
 // various client components
 LichtensteinPluginHandler *plugin = nullptr;
 ProtocolHandler *proto = nullptr;
+InputHandler *input = nullptr;
 
 // when set to false, the client terminates
 atomic_bool keepRunning = true;
@@ -89,14 +91,17 @@ int main(int argc, const char *argv[]) {
 	plugin = new LichtensteinPluginHandler(configReader);
 	proto = new ProtocolHandler(configReader);
 
+	input = new InputHandler(configReader, plugin);
+
 	// wait for a signal
 	while(keepRunning) {
 		pause();
 	}
 
 	// tear down
-	proto->stop();
+	delete input;
 
+	proto->stop();
 	delete proto;
 
 	// lastly, clean up plugins
