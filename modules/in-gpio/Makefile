@@ -12,12 +12,12 @@ DEPS := $(OBJS:.o=.d)
 
 # libraries to link against
 LIBS := stdc++ glog
-LIBS_DIRS :=
+LIBS_DIRS +=
 
 LIBS_FLAGS := $(addprefix -L,$(LIBS_DIRS)) $(addprefix -l,$(LIBS))
 
 # directories to search for includes
-INC_DIRS := $(shell find $(SRC_DIRS) -type d) ../../include ../../libs/inih
+INC_DIRS += $(shell find $(SRC_DIRS) -type d) ../../include ../../libs/inih
 
 INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 

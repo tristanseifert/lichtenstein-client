@@ -12,12 +12,12 @@ DEPS := $(OBJS:.o=.d)
 
 # libraries to link against
 LIBS := stdc++ glog sqlite3 uuid
-LIBS_DIRS :=
+LIBS_DIRS +=
 
 LIBS_FLAGS := $(addprefix -L,$(LIBS_DIRS)) $(addprefix -l,$(LIBS))
 
 # directories to search for includes
-INC_DIRS := $(shell find $(SRC_DIRS) -type d) ../include ../libs/inih ../libs/cxxopts/include ../libs/cpptime
+INC_DIRS += $(shell find $(SRC_DIRS) -type d) ../include ../libs/inih ../libs/cxxopts/include ../libs/cpptime
 
 INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 
