@@ -30,7 +30,7 @@ class GPIOInputPlugin : public InputPlugin {
 
 	private:
 		// emulate sysfs on non-linux filesystems
-#ifdef linux
+#ifdef __linux__
 		const std::string gpioAttribute = "/sys/class/gpio/gpio$PIN/$ATTRIBUTE";
 
 		const std::string gpioExport = "/sys/class/gpio/export";

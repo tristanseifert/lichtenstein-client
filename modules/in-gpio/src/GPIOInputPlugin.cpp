@@ -265,6 +265,9 @@ int GPIOInputPlugin::configureGPIO(int pin) {
 		LOG(WARNING) << "Couldn't configure pin " << pin << " as input: " << err;
 		return err;
 	}
+
+	// success
+	return 0;
 }
 
 /**
