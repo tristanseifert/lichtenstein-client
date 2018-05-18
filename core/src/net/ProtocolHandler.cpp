@@ -17,14 +17,23 @@
 #include <netdb.h>
 #include <unistd.h>
 #include <sys/select.h>
-#include <sys/fcntl.h>
+#include <fcntl.h>
 
 #include <sys/ioctl.h>
 #include <net/if.h>
 #include <ifaddrs.h>
 
+// the sysctl header is different on linux
+#ifdef __linux__
+#include <linux/sysctl.h>
+#else
 #include <sys/sysctl.h>
+#endif
 
+// sysinfo header for linux
+#ifdef __linux
+#include <sys/sysinfo.h>
+#endif
 
 // for some platforms (macOS) HOST_NAME_MAX is not defined
 #ifndef HOST_NAME_MAX
@@ -376,7 +385,7 @@ void ProtocolHandler::sendStatusResponse(lichtenstein_header_t *header, struct i
 	status->uptime = this->getUptime();
 
 	// get total and free memory (this only works on linux)
-#ifdef linux
+#ifdef __linux__
 	struct sysinfo info;
 
 	// get the struct info
@@ -393,7 +402,7 @@ void ProtocolHandler::sendStatusResponse(lichtenstein_header_t *header, struct i
 	status->packetsWithInvalidCRC = this->packetsWithInvalidCRC;
 
 	// get CPU load (in percent)
-#ifdef linux
+#ifdef __linux__
 	status->cpuUsagePercent = (info.loads[0] * 100);
 #endif
 
@@ -757,6 +766,9 @@ void ProtocolHandler::cleanUpSocket(void) {
 unsigned int ProtocolHandler::getUptime(void) {
 	int err;
 
+#ifdef __linux__
+
+#else
 	// parameters for the sysctl
 	int mib[2] = {CTL_KERN, KERN_BOOTTIME};
 
@@ -775,7 +787,9 @@ unsigned int ProtocolHandler::getUptime(void) {
     } else {
 		PLOG(ERROR) << "Can't get uptime: " << err;
 	}
+#endif
 
 	// couldn't get uptime
 	return -1;
 }
+

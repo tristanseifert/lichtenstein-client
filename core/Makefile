@@ -26,7 +26,7 @@ CPPFLAGS ?= -g $(INC_FLAGS) -MMD -MP -std=c++1z -fno-strict-aliasing
 CFLAGS ?= -g -fno-strict-aliasing
 
 # flags for the linker
-LDFLAGS ?= -g $(LIBS_FLAGS)
+LDFLAGS += -g $(LIBS_FLAGS)
 
 # git version
 GIT_HASH=`git rev-parse HEAD`

@@ -22,11 +22,11 @@ INC_DIRS += $(shell find $(SRC_DIRS) -type d) ../../include ../../libs/inih
 INC_FLAGS := $(addprefix -I,$(INC_DIRS))
 
 # flags for the C and C++ compiler
-CPPFLAGS ?= -g -fvisibility=hidden $(INC_FLAGS) -MMD -MP -std=c++1z -fno-strict-aliasing
-CFLAGS ?= -g -fvisibility=hidden -fno-strict-aliasing
+CPPFLAGS ?= -fPIC -g -fvisibility=hidden $(INC_FLAGS) -MMD -MP -std=c++1z -fno-strict-aliasing
+CFLAGS ?= -fPIC -g -fvisibility=hidden -fno-strict-aliasing
 
 # flags for the linker
-LDFLAGS ?= -g -fPIC -shared $(LIBS_FLAGS)
+LDFLAGS += -g -fPIC -shared $(LIBS_FLAGS)
 
 # git version
 GIT_HASH=`git rev-parse HEAD`

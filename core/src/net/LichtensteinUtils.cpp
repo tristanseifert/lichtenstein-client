@@ -7,6 +7,9 @@
 #include "lichtenstein_proto.h"
 #include "crc32/crc32.h"
 
+// for htons and friends
+#include <arpa/inet.h>
+
 using namespace std;
 
 /**
