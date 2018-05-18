@@ -5,6 +5,8 @@
 
 #include <string>
 #include <vector>
+#include <atomic>
+#include <thread>
 
 class GPIOInputPlugin : public InputPlugin {
 	public:
@@ -60,8 +62,24 @@ class GPIOInputPlugin : public InputPlugin {
 		int configureGPIO(int);
 		int configureGPIO(int, std::string, std::string);
 
+		int readGPIO(int);
+
+	private:
+		friend void GPIOInputPluginWorkerEntry(void *ctx);
+
+		void workerEntry(void);
+
+		std::vector<int> inputPins;
+		std::vector<int> testInputPins;
+
+		std::vector<bool> inputState;
+		std::vector<bool> testState;
+
 	private:
 		PluginHandler *handler = nullptr;
+
+		std::atomic_bool run;
+		std::thread *worker = nullptr;
 };
 
 #endif
