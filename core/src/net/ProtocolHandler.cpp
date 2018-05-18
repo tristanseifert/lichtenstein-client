@@ -792,4 +792,3 @@ unsigned int ProtocolHandler::getUptime(void) {
 	// couldn't get uptime
 	return -1;
 }
-

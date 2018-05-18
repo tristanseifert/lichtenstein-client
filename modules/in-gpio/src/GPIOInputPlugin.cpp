@@ -149,7 +149,7 @@ void GPIOInputPlugin::workerEntry(void) {
 
 		VLOG(1) << "Test inputs: " << testInputsStr.str();
 
-		for(bool state : testInputs) {
+		for(bool state : standardInputs) {
 			normalInputsStr << ((state) ? "1 " : "0 ");
 		}
 
@@ -435,7 +435,7 @@ int GPIOInputPlugin::readGPIO(int pin) {
 
 	if(err != 1) {
 		PLOG(WARNING) << "Couldn't read from " << path
-			<< " (wrote " << err << " bytes)";
+			<< " (read " << err << " bytes)";
 		hadError = true;
 	}
 
