@@ -44,6 +44,8 @@ class ProtocolHandler {
 		void sendStatusResponse(lichtenstein_header_t *, struct in_addr *);
 		int sendPacketToHost(void *, size_t, struct in_addr *);
 
+		void ackUnicast(lichtenstein_header_t *, struct in_addr *);
+
 	private:
 		static unsigned int getUptime(void);
 
@@ -59,6 +61,11 @@ class ProtocolHandler {
 		std::thread *worker = nullptr;
 
 		CppTime::Timer timer;
+
+	private:
+		bool isAdopted = false;
+
+		time_t lastServerMessageOn = 0;
 
 	private:
 		size_t packetsWithInvalidCRC = 0;

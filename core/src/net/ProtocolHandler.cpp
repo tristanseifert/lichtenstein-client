@@ -180,7 +180,13 @@ void ProtocolHandler::workerEntry(void) {
 
 	auto announcementTimer = this->timer.add(std::chrono::milliseconds(initialLong),
 	[this](CppTime::timer_id) {
-		this->sendAnnouncement();
+		// send the command
+		int blah = kWorkerAnnounce;
+		int err = write(this->workerPipeWrite, &blah, sizeof(blah));
+
+		PLOG_IF(ERROR, err < 0) << "Couldn't write announcement command";
+
+		// this->sendAnnouncement();
 	}, std::chrono::milliseconds(subsequentLong));
 
 	// main loop; wait on socket and pipe
@@ -233,7 +239,7 @@ void ProtocolHandler::workerEntry(void) {
 			// otherwise, try to parse the packet
 			else {
 				VLOG(3) << "Received " << rsz << " bytes";
-				// this->handlePacket(buffer, rsz, &msg);
+				this->handlePacket(buffer, rsz, &msg);
 			}
 		}
 
@@ -315,59 +321,126 @@ void ProtocolHandler::handlePacket(void *packet, size_t length, struct msghdr *m
 		}
     }
 
-	// if it's a multicast packet, pass it to the discovery handler
-	if(isMulticast) {
-		LOG(INFO) << "Received multicast packet: ignoring";
+	// validate the packet
+	LichtensteinUtils::PacketErrors pErr;
+
+	// check validity
+	pErr = LichtensteinUtils::validatePacket(packet, length);
+
+	if(err != LichtensteinUtils::kNoError) {
+		// is it a checksum error?
+		if(err == LichtensteinUtils::kInvalidChecksum) {
+			// if so, increment that counter
+			this->packetsWithInvalidCRC++;
+		}
+
+		LOG(ERROR) << "Couldn't verify packet: " << err
+			<< "(multicast: " << isMulticast << ")";
+		return;
 	}
-	// it's not a multicast packet. neat
-	else {
-		LichtensteinUtils::PacketErrors pErr;
 
-		// check validity
-		pErr = LichtensteinUtils::validatePacket(packet, length);
+	// reset the timer
+	this->lastServerMessageOn = time(nullptr);
 
-		if(err != LichtensteinUtils::kNoError) {
-			// is it a checksum error?
-			if(err == LichtensteinUtils::kInvalidChecksum) {
-				// if so, increment that counter
-				this->packetsWithInvalidCRC++;
-			}
+	// check to see what type of packet it is
+	LichtensteinUtils::convertToHostByteOrder(packet, length);
+	lichtenstein_header_t *header = static_cast<lichtenstein_header_t *>(packet);
 
-			LOG(ERROR) << "Couldn't verify unicast packet: " << err;
-			return;
-		}
+	// apply the multicast and request masks
+	unsigned int type = header->opcode;
 
-		// check to see what type of packet it is
-		LichtensteinUtils::convertToHostByteOrder(packet, length);
-		lichtenstein_header_t *header = static_cast<lichtenstein_header_t *>(packet);
+	const unsigned int kMulticastMask = 0x100;
+	const unsigned int kRequestMask = 0x200;
+	const unsigned int kAckMask = 0x400;
 
-		VLOG(3) << "Received unicast packet with opcode " << header->opcode;
+	if(isMulticast) type |= kMulticastMask;
+	if(header->payloadLength == 0) type |= kRequestMask;
+	if((header->flags & kFlagAck)) type |= kAckMask;
 
-		// is it an acknowledgement?
-		if((header->flags & kFlagAck)) {
-			// TODO: handle acknowledgements
-		} else {
-			// is it a request (payload length = 0?)
-			if(header->payloadLength == 0) {
-				switch(header->opcode) {
-					// status request?
-					case kOpcodeNodeStatusReq:
-						this->sendStatusResponse(header, &srcAddrStruct);
-						break;
+	VLOG(3) << "Received packet with opcode " << header->opcode
+		<< "(multicast " << isMulticast << ")";
 
-					// unhandled requests
-					default:
-						LOG(INFO) << "Request for unimplemented opcode " << header->opcode;
-						break;
-				}
+	// handle the packet
+	switch(type) {
+		// status request?
+		case (kOpcodeNodeStatusReq | kRequestMask):
+			this->sendStatusResponse(header, &srcAddrStruct);
+			break;
+
+		// node adoption?
+		case kOpcodeNodeAdoption:
+			if(this->isAdopted == false) {
+				// TODO: handle adoption
 			} else {
-				// these packets have data
+				LOG(WARNING) << "Attempted adoption by " << srcAddr << "!";
 			}
-		}
+			break;
+
+		// received framebuffer data?
+		case kOpcodeFramebufferData:
+			if(this->isAdopted) {
+				// TODO: handle framebuffer data
+			} else {
+				LOG(WARNING) << "Received framebuffer data from " << srcAddr << ", but node isn't adopted";
+			}
+			break;
+
+		// received sync output? (this _should_ be multicast but handle unicast too)
+		case kOpcodeSyncOutput:
+		case (kOpcodeSyncOutput | kMulticastMask):
+			if(this->isAdopted) {
+				// TODO: output data
+			} else {
+				LOG(WARNING) << "Received output request from " << srcAddr << ", but node isn't adopted";
+			}
+			break;
+
+		// keepalive; just ack it and reset the adoption timer
+		case kOpcodeKeepalive:
+			// TODO: reset adoption timer
+			this->ackUnicast(header, &srcAddrStruct);
+			break;
+
+		// unhandled packet type
+		default:
+			LOG(INFO) << "Request for unimplemented opcode " << header->opcode
+				<< " (flags 0x" << std::hex << type << ")";
+			break;
 	}
 }
 
 
+
+/**
+ * Acknowledges an unicast packet without sending any additional data back to
+ * the server.
+ */
+void ProtocolHandler::ackUnicast(lichtenstein_header_t *header, struct in_addr *source) {
+	int err;
+
+	// allocate the packet
+	size_t totalPacketLen = sizeof(lichtenstein_header_t);
+
+	lichtenstein_header_t *packet = static_cast<lichtenstein_header_t *>(malloc(totalPacketLen));
+	memset(packet, 0, totalPacketLen);
+
+	// prepare to send
+	LichtensteinUtils::populateHeader(packet, header->opcode);
+
+	packet->flags |= kFlagAck;
+
+	packet->txn = header->txn;
+
+	LichtensteinUtils::convertToNetworkByteOrder(packet, totalPacketLen);
+	LichtensteinUtils::applyChecksum(packet, totalPacketLen);
+
+	// send
+	err = this->sendPacketToHost(packet, totalPacketLen, source);
+	LOG_IF(ERROR, err != 0) << "Couldn't send packet: " << err;
+
+	// clean up
+	free(packet);
+}
 
 /**
  * Sends a status response packet.
