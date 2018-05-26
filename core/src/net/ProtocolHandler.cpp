@@ -3,7 +3,7 @@
 #include "LichtensteinUtils.h"
 #include "lichtenstein_proto.h"
 
-#include "../out/OutputFrame.h"
+#include "../output/OutputFrame.h"
 
 #include <glog/logging.h>
 #include <INIReader.h>

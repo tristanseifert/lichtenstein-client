@@ -6,6 +6,10 @@
 #include <cstddef>
 #include <string>
 #include <vector>
+#include <queue>
+#include <bitset>
+
+class OutputFrame;
 
 class MAX10OutputPlugin : public OutputPlugin {
 	public:
@@ -20,11 +24,14 @@ class MAX10OutputPlugin : public OutputPlugin {
 		virtual const unsigned int maxChannels(void);
 		virtual int setEnabledChannels(unsigned int channels);
 
-		virtual bool isChannelBusy(unsigned int channel);
-		virtual int sendChannelData(unsigned int channel, void *data, size_t length);
+		virtual int queueFrame(OutputFrame *frame);
+		virtual int outputChannels(std::bitset<32> &channels);
 
 	private:
 		PluginHandler *handler = nullptr;
+
+		// queue of output frames
+		std::queue<OutputFrame *> outFrames;
 };
 
 #endif

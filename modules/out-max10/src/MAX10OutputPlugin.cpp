@@ -1,5 +1,7 @@
 #include "MAX10OutputPlugin.h"
 
+#include <OutputFrame.h>
+
 MAX10OutputPlugin::MAX10OutputPlugin(void *romData, size_t length) : OutputPlugin(romData, length) {
 
 }
@@ -26,10 +28,22 @@ int MAX10OutputPlugin::setEnabledChannels(unsigned int channels) {
 	return -1;
 }
 
-bool MAX10OutputPlugin::isChannelBusy(unsigned int channel) {
-	return false;
+
+
+/**
+ * Queues a frame for output: this could convert the frame to the output
+ * representation, for example.
+ */
+int MAX10OutputPlugin::queueFrame(OutputFrame *frame) {
+	// TODO: implement
+	return -1;
 }
 
-int MAX10OutputPlugin::sendChannelData(unsigned int channel, void *data, size_t length) {
+/**
+ * Outputs all channels whose bits are set. This uses absolute channel
+ * numbering.
+ */
+int MAX10OutputPlugin::outputChannels(std::bitset<32> &channels) {
+	// TODO: implement
 	return -1;
 }

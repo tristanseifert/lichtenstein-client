@@ -6,12 +6,12 @@
 
 #include <INIReader.h>
 
-#include "OutputFrame.h"
-
 class OutputPlugin;
 class InputPlugin;
 
 class PluginHandler;
+
+class OutputFrame;
 
 // output plugin factory method: OutputPlugin *factory(void *romData, size_t romDataLength);
 typedef OutputPlugin* (*output_plugin_factory_t)(PluginHandler *, void *, size_t);
@@ -34,15 +34,6 @@ class PluginHandler {
 		virtual int registerOutputPlugin(const uuid_t &uuid, output_plugin_factory_t factory) = 0;
 		virtual int registerInputPlugin(const uuid_t &uuid, input_plugin_factory_t factory) = 0;
 
-		/**
-		 * Are frames for outputting available?
-		 */
-		virtual bool areFramesAvailable(void) = 0;
-		/**
-		 * Attempt to dequeue a frame; regardless of whether the frame is even
-		 * output.
-		 */
-		virtual int dequeueFrame(OutputFrame **out) = 0;
 		/**
 		 * Acknowledges a frame as having been processed. This will notify the
 		 * server that the frame is ready.

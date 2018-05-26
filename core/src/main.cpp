@@ -1,9 +1,10 @@
 /**
  * Main entrypoint for Lichtenstein client
  */
-#include "LichtensteinPluginHandler.h"
-#include "ProtocolHandler.h"
-#include "InputHandler.h"
+#include "plugin/LichtensteinPluginHandler.h"
+#include "net/ProtocolHandler.h"
+#include "input/InputHandler.h"
+#include "output/OutputHandler.h"
 
 #include <glog/logging.h>
 #include <cxxopts.hpp>
@@ -24,7 +25,9 @@ uint32_t kLichtensteinSWVersion = 0x00001000;
 // various client components
 LichtensteinPluginHandler *plugin = nullptr;
 ProtocolHandler *proto = nullptr;
+
 InputHandler *input = nullptr;
+OutputHandler *output = nullptr;
 
 // when set to false, the client terminates
 atomic_bool keepRunning;
@@ -92,19 +95,24 @@ int main(int argc, const char *argv[]) {
 	plugin = new LichtensteinPluginHandler(configReader);
 	proto = new ProtocolHandler(configReader);
 
+	// set up the input and output handlers
+	input = new InputHandler(configReader, plugin);
+	output = new OutputHandler(configReader, plugin);
+
+
+
 	// set up plugin handler
 	plugin->protocolHandler = proto;
 
 	// set up frame received callback: queue into plugin handler
 	proto->frameReceiveCallback = [](OutputFrame *frame) {
-		return plugin->queueOutputFrame(frame);
+		return output->queueOutputFrame(frame);
 	};
 	// set up channel output callback: call into plugin handler
 	proto->channelOutputCallback = [](std::bitset<32> &channels) {
-		return plugin->outputChannels(channels);
+		return output->outputChannels(channels);
 	};
 
-	input = new InputHandler(configReader, plugin);
 
 	// wait for a signal
 	while(keepRunning) {

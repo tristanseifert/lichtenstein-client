@@ -7,6 +7,9 @@
 #include <cstddef>
 
 #include <string>
+#include <bitset>
+
+class OutputFrame;
 
 class OutputPlugin {
 	public:
@@ -25,8 +28,8 @@ class OutputPlugin {
 		virtual const unsigned int maxChannels(void) = 0;
 		virtual int setEnabledChannels(unsigned int channels) = 0;
 
-		virtual bool isChannelBusy(unsigned int channel) = 0;
-		virtual int sendChannelData(unsigned int channel, void *data, size_t length) = 0;
+		virtual int queueFrame(OutputFrame *frame) = 0;
+		virtual int outputChannels(std::bitset<32> &channels) = 0;
 
 	// shared variables
 	protected:

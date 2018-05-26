@@ -1,6 +1,6 @@
 #include "InputHandler.h"
 
-#include "LichtensteinPluginHandler.h"
+#include "../plugin/LichtensteinPluginHandler.h"
 
 #include <glog/logging.h>
 #include <INIReader.h>
