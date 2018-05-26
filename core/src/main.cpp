@@ -11,6 +11,7 @@
 
 #include <iostream>
 #include <atomic>
+#include <bitset>
 
 #include <cstdint>
 #include <signal.h>
@@ -90,6 +91,18 @@ int main(int argc, const char *argv[]) {
 	// set up the various components
 	plugin = new LichtensteinPluginHandler(configReader);
 	proto = new ProtocolHandler(configReader);
+
+	// set up plugin handler
+	plugin->protocolHandler = proto;
+
+	// set up frame received callback: queue into plugin handler
+	proto->frameReceiveCallback = [](OutputFrame *frame) {
+		return plugin->queueOutputFrame(frame);
+	};
+	// set up channel output callback: call into plugin handler
+	proto->channelOutputCallback = [](std::bitset<32> &channels) {
+		return plugin->outputChannels(channels);
+	};
 
 	input = new InputHandler(configReader, plugin);
 

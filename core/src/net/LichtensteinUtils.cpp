@@ -244,7 +244,7 @@ int LichtensteinUtils::convertPacketByteOrder(void *_packet, bool fromNetworkOrd
 			lichtenstein_sync_output_t *out;
 			out = (lichtenstein_sync_output_t *) _packet;
 
-			out->channel = __builtin_bswap32(out->channel);
+			out->channels = __builtin_bswap32(out->channels);
 			break;
 		}
 

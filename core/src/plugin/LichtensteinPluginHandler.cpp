@@ -1,6 +1,10 @@
 #include "LichtensteinPluginHandler.h"
 
+#include "../net/ProtocolHandler.h"
+
 #include <glog/logging.h>
+
+#include <stdexcept>
 
 #include <dirent.h>
 #include <sys/stat.h>
@@ -26,6 +30,14 @@ LichtensteinPluginHandler::LichtensteinPluginHandler(INIReader *_cfg) : config(_
 LichtensteinPluginHandler::~LichtensteinPluginHandler() {
 	// call plugin destructors
 	this->callPluginDestructors();
+
+	// delete all output frames
+	while(!this->outFrames.empty()) {
+		auto frame = this->outFrames.front();
+		this->outFrames.pop();
+
+		delete frame;
+	}
 }
 
 
@@ -250,4 +262,71 @@ void LichtensteinPluginHandler::callPluginDestructors(void) {
 			LOG(WARNING) << "Couldn't unload " << path << ": " << dlerror();
 		}
 	}
+}
+
+
+
+/**
+ * Calls into the loaded plugin to output the specified channels.
+ */
+int LichtensteinPluginHandler::outputChannels(std::bitset<32> &channels) {
+	// TODO
+	return -1;
+}
+
+/**
+ * Queues a new frame into the output queue, then notifies the plugin.
+ */
+int LichtensteinPluginHandler::queueOutputFrame(OutputFrame *frame) {
+	// queue it
+	this->outFrames.push(frame);
+
+	// notify
+	// TODO: notify
+
+	// done
+	return 0;
+}
+
+/**
+ * Are frames for outputting available?
+ */
+bool LichtensteinPluginHandler::areFramesAvailable(void) {
+	return !(this->outFrames.empty());
+}
+
+/**
+ * Attempt to dequeue a frame; regardless of whether the frame is even
+ * output, the caller should delete when it no longer is required: this
+ * would typically be after acknowledging it.
+ */
+int LichtensteinPluginHandler::dequeueFrame(OutputFrame **out) {
+	CHECK(out != nullptr) << "Output pointer may not be null!";
+
+	// throw exception if empty
+	if(this->outFrames.empty()) {
+		throw std::out_of_range("No frames available");
+	}
+
+	// write the frame
+	*out = this->outFrames.front();
+	this->outFrames.pop();
+
+	// success!
+	return 0;
+}
+
+/**
+ * Acknowledges a frame as having been processed. This will notify the
+ * server that the frame is ready.
+ *
+ * TODO: Should this somehow ensure that the packet is sent from the worker
+ * thread?
+ */
+void LichtensteinPluginHandler::acknowledgeFrame(OutputFrame *frame) {
+	// acknowledge frame
+	this->protocolHandler->ackOutputFrame(frame);
+
+	// delete the frame
+	delete frame;
 }

@@ -234,7 +234,7 @@ typedef struct {
 typedef struct {
 	lichtenstein_header_t header;
 
-	uint32_t channel;
+	uint32_t channels;
 } lichtenstein_sync_output_t;
 
 

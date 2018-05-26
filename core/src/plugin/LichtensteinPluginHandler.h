@@ -6,10 +6,14 @@
 
 #include <lichtenstein_plugin.h>
 
+#include "../out/OutputFrame.h"
+
 #include <string>
 #include <vector>
 #include <tuple>
 #include <map>
+#include <queue>
+#include <bitset>
 
 #include <uuid/uuid.h>
 
@@ -17,6 +21,8 @@
 
 class LichtensteinPluginHandler : public PluginHandler {
 	friend class InputHandler;
+
+	friend int main(int, const char *[]);
 
 	public:
 		LichtensteinPluginHandler(INIReader *config);
@@ -30,6 +36,10 @@ class LichtensteinPluginHandler : public PluginHandler {
 
 		virtual int registerOutputPlugin(const uuid_t &uuid, output_plugin_factory_t factory);
 		virtual int registerInputPlugin(const uuid_t &uuid, input_plugin_factory_t factory);
+
+		virtual bool areFramesAvailable(void);
+		virtual int dequeueFrame(OutputFrame **out);
+		virtual void acknowledgeFrame(OutputFrame *frame);
 
 	// API used by the rest of the server
 	protected:
@@ -50,6 +60,9 @@ class LichtensteinPluginHandler : public PluginHandler {
 
 			return factory(this);
 		}
+
+		int queueOutputFrame(OutputFrame *frame);
+		int outputChannels(std::bitset<32> &channels);
 
 	private:
 		enum {
@@ -78,6 +91,11 @@ class LichtensteinPluginHandler : public PluginHandler {
 		// factory methods for input/output plugins
 		std::map<std::string, output_plugin_factory_t> outFactories;
 		std::map<std::string, input_plugin_factory_t> inFactories;
+
+		// queue of output frames
+		std::queue<OutputFrame *> outFrames;
+
+		ProtocolHandler *protocolHandler = nullptr;
 
 		INIReader *config = nullptr;
 };

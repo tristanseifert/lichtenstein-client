@@ -3,11 +3,15 @@
 #include "LichtensteinUtils.h"
 #include "lichtenstein_proto.h"
 
+#include "../out/OutputFrame.h"
+
 #include <glog/logging.h>
 #include <INIReader.h>
 #include <cpptime.h>
 
 #include <chrono>
+#include <bitset>
+
 #include <cstring>
 
 #include <sys/types.h>
@@ -379,7 +383,32 @@ void ProtocolHandler::handlePacket(void *packet, size_t length, struct msghdr *m
 		// received framebuffer data?
 		case kOpcodeFramebufferData:
 			if(this->isAdopted) {
-				// TODO: handle framebuffer data
+				// create an output frame…
+				lichtenstein_framebuffer_data_t *packet = reinterpret_cast<lichtenstein_framebuffer_data_t *>(header);
+				OutputFrame *fr = new OutputFrame(packet, this, &srcAddrStruct);
+
+				// …and run the callback.
+				err = this->frameReceiveCallback(fr);
+
+				if(err != 0) {
+					// increment counter
+					this->framebufferPacketsDiscarded++;
+
+					// log
+					LOG(WARNING) << "Couldn't process framebuffer data: " << err;
+
+					// create a negative ack
+					lichtenstein_header_t *hdr = fr->getAckPacket();
+
+					hdr->flags &= ~kFlagAck;
+					hdr->flags |= ~kFlagNAck;
+
+					// send it
+					this->ackOutputFrame(fr);
+
+					// delete frame
+					delete fr;
+				}
 			} else {
 				LOG(WARNING) << "Received framebuffer data from " << srcAddr << ", but node isn't adopted";
 			}
@@ -389,7 +418,24 @@ void ProtocolHandler::handlePacket(void *packet, size_t length, struct msghdr *m
 		case kOpcodeSyncOutput:
 		case (kOpcodeSyncOutput | kMulticastMask):
 			if(this->isAdopted) {
-				// TODO: output data
+				lichtenstein_sync_output_t *packet = reinterpret_cast<lichtenstein_sync_output_t *>(header);
+
+				// make it a bitfield
+				std::bitset<32> channels(packet->channels);
+
+				// call into the plugin handler
+				err = this->channelOutputCallback(channels);
+
+				if(err != 0) {
+					// increment counter
+					this->outputPacketsDiscarded++;
+
+					// log
+					LOG(WARNING) << "Couldn't process channel output: " << err;
+
+					// nack
+					this->ackUnicast(header, &srcAddrStruct, true);
+				}
 			} else {
 				LOG(WARNING) << "Received output request from " << srcAddr << ", but node isn't adopted";
 			}
@@ -415,32 +461,67 @@ void ProtocolHandler::handlePacket(void *packet, size_t length, struct msghdr *m
  * Acknowledges an unicast packet without sending any additional data back to
  * the server.
  */
-void ProtocolHandler::ackUnicast(lichtenstein_header_t *header, struct in_addr *source) {
+void ProtocolHandler::ackUnicast(lichtenstein_header_t *header, struct in_addr *source, bool nack) {
 	int err;
 
+	// get the packet
+	void *packet = this->createUnicastAck(header, nack);
+
+	// send
+	err = this->sendPacketToHost(packet, sizeof(lichtenstein_header_t), source);
+	LOG_IF(ERROR, err != 0) << "Couldn't send packet: " << err;
+
+	// clean up
+	free(packet);
+}
+
+/**
+ * Generates an acknowledgement packet.
+ */
+lichtenstein_header_t *ProtocolHandler::createUnicastAck(lichtenstein_header_t *header, bool nack) {
 	// allocate the packet
 	size_t totalPacketLen = sizeof(lichtenstein_header_t);
 
 	lichtenstein_header_t *packet = static_cast<lichtenstein_header_t *>(malloc(totalPacketLen));
+	CHECK(packet != nullptr) << "Couldn't allocate packet!";
+
 	memset(packet, 0, totalPacketLen);
 
-	// prepare to send
+	// prepare the packet
 	LichtensteinUtils::populateHeader(packet, header->opcode);
 
-	packet->flags |= kFlagAck;
+	// set the nack/ack flags
+	if(!nack) {
+		packet->flags |= kFlagAck;
+	} else {
+		packet->flags |= kFlagNAck;
+	}
 
 	packet->txn = header->txn;
 
 	LichtensteinUtils::convertToNetworkByteOrder(packet, totalPacketLen);
 	LichtensteinUtils::applyChecksum(packet, totalPacketLen);
 
-	// send
-	err = this->sendPacketToHost(packet, totalPacketLen, source);
-	LOG_IF(ERROR, err != 0) << "Couldn't send packet: " << err;
-
-	// clean up
-	free(packet);
+	// done
+	return packet;
 }
+
+/**
+ * Acknowledges an output frame.
+ */
+void ProtocolHandler::ackOutputFrame(OutputFrame *frame) {
+	int err;
+
+	// get the packet
+	void *packet = frame->getAckPacket();
+	struct in_addr *dest = frame->getAckDest();
+
+	// send
+	err = this->sendPacketToHost(packet, sizeof(lichtenstein_header_t), dest);
+	LOG_IF(ERROR, err != 0) << "Couldn't send packet: " << err;
+}
+
+
 
 /**
  * Sends a status response packet.
