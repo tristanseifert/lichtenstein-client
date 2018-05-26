@@ -390,7 +390,7 @@ int MAX10OutputPlugin::findBlockOfSize(size_t size) {
 /**
  * Sets the state of a particular block in memory.
  */
-void MAX10OutputPlugin::setBlockState(unsigned int addr, size_t size, bool state) {
+void MAX10OutputPlugin::setBlockState(uint32_t addr, size_t size, bool state) {
 	VLOG(3) << "Setting state of " << size << " bytes at 0x" << std::hex << addr
 		<< " to " << state;
 
@@ -410,6 +410,8 @@ void MAX10OutputPlugin::setBlockState(unsigned int addr, size_t size, bool state
  * Outputs channels that have data.
  */
 void MAX10OutputPlugin::outputChannelsWithData(void) {
+	int err;
+
 	// for each requested channel, do we have an output mapping?
 	for(int i = 0; i < this->channelsToOutput.size(); i++) {
 		// is the channel set?
@@ -418,9 +420,17 @@ void MAX10OutputPlugin::outputChannelsWithData(void) {
 			for(int j = 0; j < this->channelOutputMap.size(); j++) {
 				auto tuple = this->channelOutputMap[j];
 
+				unsigned int channel = std::get<0>(tuple);
+
 				// we do
-				if(std::get<0>(tuple) == i) {
-					// TODO: set output registers
+				if(channel == i) {
+					uint32_t addr = std::get<1>(tuple);
+					uint16_t length = std::get<2>(tuple);
+
+					// write output regs
+					err = this->writePeriphReg(channel, addr, length);
+					PLOG_IF(ERROR, err < 0) << "Couldn't write registers for "
+						<< "channel " << channel << ": " << err;
 
 					// move it to the list of outputting channels
 					this->activeChannels.push_back(tuple);
@@ -477,6 +487,7 @@ void MAX10OutputPlugin::releaseUnusedFramebufferMem(void) {
 }
 
 
+
 const std::string MAX10OutputPlugin::name(void) {
 	return "MAX10 FPGA Output Board";
 }
@@ -502,6 +513,7 @@ void MAX10OutputPlugin::reset(void) {
  * data.
  */
 int MAX10OutputPlugin::readStatusReg(std::bitset<16> &status) {
+	// clear the output status bitset
 	status.reset();
 
 	// TODO: implement
@@ -514,7 +526,18 @@ int MAX10OutputPlugin::readStatusReg(std::bitset<16> &status) {
  * @return The number of bytes written if successful, a negative error code
  * otherwise.
  */
-int MAX10OutputPlugin::writePeriphMem(unsigned int addr, void *data, size_t length) {
+int MAX10OutputPlugin::writePeriphMem(uint32_t addr, void *data, size_t length) {
+	// TODO: implement
+	return -1;
+}
+
+/**
+ * Writes the address and length into the given channel's output registers; this
+ * will immediately start outputting data for that channel.
+ *
+ * @return 0 if successful, negative error code otherwise.
+ */
+int MAX10OutputPlugin::writePeriphReg(unsigned int channel, uint32_t addr, uint16_t length) {
 	// TODO: implement
 	return -1;
 }
@@ -549,8 +572,8 @@ int MAX10OutputPlugin::queueFrame(OutputFrame *frame) {
 }
 
 /**
- * Outputs all channels whose bits are set. This uses absolute channel
- * numbering.
+ * Outputs all channels whose bits are set. This uses channel numbering relative
+ * to the first output channel on the output chip.
  */
 int MAX10OutputPlugin::outputChannels(std::bitset<32> &channels) {
 	int err;

@@ -49,12 +49,13 @@ class MAX10OutputPlugin : public OutputPlugin {
 		void releaseUnusedFramebufferMem(void);
 
 		int findBlockOfSize(size_t);
-		void setBlockState(unsigned int, size_t, bool);
+		void setBlockState(uint32_t, size_t, bool);
 
 		void reset(void);
 		int readStatusReg(std::bitset<16> &status);
 
-		int writePeriphMem(unsigned int, void *, size_t);
+		int writePeriphMem(uint32_t, void *, size_t);
+		int writePeriphReg(unsigned int, uint32_t, uint16_t);
 
 	private:
 		enum {
@@ -81,9 +82,9 @@ class MAX10OutputPlugin : public OutputPlugin {
 		std::mutex outFramesMutex;
 
 		// list of (channel, address, length) to output
-		std::vector<std::tuple<unsigned int, int, size_t>> channelOutputMap;
+		std::vector<std::tuple<unsigned int, uint32_t, uint16_t>> channelOutputMap;
 		// list of (channel, address, length) currently outputting
-		std::vector<std::tuple<unsigned int, int, size_t>> activeChannels;
+		std::vector<std::tuple<unsigned int, uint32_t, uint16_t>> activeChannels;
 
 		// SPI baud rate and chip select
 		unsigned int spiBaud = 0;
