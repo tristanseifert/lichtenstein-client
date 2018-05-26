@@ -268,7 +268,7 @@ void LichtensteinPluginHandler::callPluginDestructors(void) {
  */
 void LichtensteinPluginHandler::acknowledgeFrame(OutputFrame *frame, bool nack) {
 	// acknowledge frame
-	this->protocolHandler->ackOutputFrame(frame);
+	this->protocolHandler->ackOutputFrame(frame, nack);
 
 	// delete the frame
 	delete frame;

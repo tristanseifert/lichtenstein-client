@@ -68,7 +68,7 @@ class ProtocolHandler {
 		lichtenstein_header_t *createUnicastAck(lichtenstein_header_t *, bool = false);
 		void ackUnicast(lichtenstein_header_t *, struct in_addr *, bool = false);
 
-		void ackOutputFrame(OutputFrame *);
+		void ackOutputFrame(OutputFrame *, bool = false);
 
 	private:
 		static unsigned int getUptime(void);

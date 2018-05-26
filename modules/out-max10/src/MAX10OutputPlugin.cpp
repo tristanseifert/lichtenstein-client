@@ -291,6 +291,9 @@ void MAX10OutputPlugin::sendFrameToFramebuffer(OutputFrame *frame) {
 		// increment counter and log a message
 		this->framesDroppedDueToInsufficientMem++;
 		LOG(WARNING) << "Couldn't find memory for frame " << frame;
+		LOG_EVERY_N(WARNING, 10) << "Dropped "
+			<< this->framesDroppedDueToInsufficientMem << "frames due to "
+			<< "insufficient memory";
 
 		// nack the frame
 		this->handler->acknowledgeFrame(frame, true);

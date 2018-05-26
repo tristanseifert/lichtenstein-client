@@ -509,12 +509,21 @@ lichtenstein_header_t *ProtocolHandler::createUnicastAck(lichtenstein_header_t *
 /**
  * Acknowledges an output frame.
  */
-void ProtocolHandler::ackOutputFrame(OutputFrame *frame) {
+void ProtocolHandler::ackOutputFrame(OutputFrame *frame, bool nack) {
 	int err;
 
 	// get the packet
 	void *packet = frame->getAckPacket();
 	struct in_addr *dest = frame->getAckDest();
+
+	// modify the packet if nack is true
+	if(nack) {
+		lichtenstein_header_t *hdr = static_cast<lichtenstein_header_t *>(packet);
+
+		// clear ACK flag, set NACK
+		hdr->flags &= ~kFlagAck;
+		hdr->flags |= kFlagNAck;
+	}
 
 	// send
 	err = this->sendPacketToHost(packet, sizeof(lichtenstein_header_t), dest);
