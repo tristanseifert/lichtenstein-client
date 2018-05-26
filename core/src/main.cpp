@@ -119,10 +119,13 @@ int main(int argc, const char *argv[]) {
 		pause();
 	}
 
+	// before anything, stop accepting protocol requests
+	proto->stop();
+
 	// tear down
 	delete input;
+	delete output;
 
-	proto->stop();
 	delete proto;
 
 	// lastly, clean up plugins

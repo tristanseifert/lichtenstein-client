@@ -38,7 +38,7 @@ class PluginHandler {
 		 * Acknowledges a frame as having been processed. This will notify the
 		 * server that the frame is ready.
 		 */
-		virtual void acknowledgeFrame(OutputFrame *frame) = 0;
+		virtual void acknowledgeFrame(OutputFrame *frame, bool nack = false) = 0;
 };
 
 #endif

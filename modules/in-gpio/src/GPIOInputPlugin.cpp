@@ -166,7 +166,7 @@ void GPIOInputPlugin::workerEntry(void) {
 	}
 
 	// clean up
-	LOG(INFO) << "Terminating worker thread";
+	LOG(INFO) << "Shutting down worker thread";
 }
 
 

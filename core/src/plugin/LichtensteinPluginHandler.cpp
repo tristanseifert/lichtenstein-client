@@ -266,7 +266,7 @@ void LichtensteinPluginHandler::callPluginDestructors(void) {
  * TODO: Should this somehow ensure that the packet is sent from the worker
  * thread?
  */
-void LichtensteinPluginHandler::acknowledgeFrame(OutputFrame *frame) {
+void LichtensteinPluginHandler::acknowledgeFrame(OutputFrame *frame, bool nack) {
 	// acknowledge frame
 	this->protocolHandler->ackOutputFrame(frame);
 

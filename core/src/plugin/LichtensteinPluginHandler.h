@@ -39,7 +39,7 @@ class LichtensteinPluginHandler : public PluginHandler {
 		virtual int registerOutputPlugin(const uuid_t &uuid, output_plugin_factory_t factory);
 		virtual int registerInputPlugin(const uuid_t &uuid, input_plugin_factory_t factory);
 
-		virtual void acknowledgeFrame(OutputFrame *frame);
+		virtual void acknowledgeFrame(OutputFrame *frame, bool nack = false);
 
 	// API used by the rest of the server
 	protected:
