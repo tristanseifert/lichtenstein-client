@@ -579,23 +579,25 @@ int MAX10OutputPlugin::doSpiTransaction(void *read, void *write, size_t length) 
 
 #ifdef __linux__
 	// set up the SPI struct
-	struct spi_ioc_transfer txn =
-      {
-        .tx_buf = (unsigned long) write,
-        .rx_buf = (unsigned long) read,
-        .len = length,
-        .delay_usecs = 0,
-        .speed_hz = this->spiBaud,
-        .bits_per_word = 8,
-      };
+	struct spi_ioc_transfer txn = {
+		.tx_buf = (unsigned long) write,
+		.rx_buf = (unsigned long) read,
+		
+		.len = length,
+		.speed_hz = this->spiBaud,
+		
+		.delay_usecs = 0,
+		.bits_per_word = 8,
+		.cs_change = true,
+	};
 
-	  // perform transfer
-	  err = ioctl(this->spiDevice, SPI_IOC_MESSAGE(1), &txn);
-	  PLOG_IF(ERROR, err < 0) << "Couldn't do SPI transfer";
+	// perform transfer
+	err = ioctl(this->spiDevice, SPI_IOC_MESSAGE(1), &txn);
+	PLOG_IF(ERROR, err < 0) << "Couldn't do SPI transfer";
 #endif
 
-	  // done!
-	  return err;
+	// done!
+	return err;
 }
 
 
