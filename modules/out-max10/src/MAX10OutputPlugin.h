@@ -52,6 +52,8 @@ class MAX10OutputPlugin : public OutputPlugin {
 		void setBlockState(uint32_t, size_t, bool);
 
 		void reset(void);
+		int doSpiTransaction(void *, void *, size_t);
+
 		int readStatusReg(std::bitset<16> &status);
 
 		int writePeriphMem(uint32_t, void *, size_t);
@@ -86,9 +88,14 @@ class MAX10OutputPlugin : public OutputPlugin {
 		// list of (channel, address, length) currently outputting
 		std::vector<std::tuple<unsigned int, uint32_t, uint16_t>> activeChannels;
 
-		// SPI baud rate and chip select
+		// SPI baud rate, device file, etc
+		unsigned int i2cEeepromAddr = 0;
+
 		unsigned int spiBaud = 0;
-		int spiCsLine = -1;
+		std::string spiDeviceFile;
+
+		// SPI device handle
+		unsigned int spiDevice = -1;
 
 		// framebuffer memory
 		uint8_t *framebuffer = nullptr;

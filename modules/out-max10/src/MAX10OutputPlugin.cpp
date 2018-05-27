@@ -12,8 +12,15 @@
 #include <unistd.h>
 #include <fcntl.h>
 #include <sys/select.h>
+#include <sys/ioctl.h>
 
 #include <OutputFrame.h>
+
+// SPI stuff
+#ifdef __linux__
+	#include <linux/types.h>
+	#include <linux/spi/spidev.h>
+#endif
 
 // size of each "block" in the framebuffer allocation map
 static const size_t kFBMapBlockSize = 16;
@@ -55,13 +62,55 @@ MAX10OutputPlugin::MAX10OutputPlugin(PluginHandler *_handler, void *romData, siz
  * Configures the SPI bus.
  */
 void MAX10OutputPlugin::configureSPI(void) {
+	int err;
+
 	INIReader *config = this->handler->getConfig();
 
 	// TODO: read from EEPROM data
 	this->spiBaud = config->GetInteger("output_max10", "baud", 2500000);
 
-	this->spiCsLine = config->GetInteger("output_max10", "cs", -1);
-	CHECK(this->spiCsLine >= 0) << "Invalid chip select line " << this->spiCsLine;
+	this->spiDeviceFile = config->Get("output_max10", "device", "");
+	CHECK(this->spiDeviceFile != "") << "Invalid device file: " << this->spiDeviceFile;
+
+	// get EEPROM address
+	this->i2cEeepromAddr = config->GetInteger("output_max10", "eeprom", 0x40);
+	CHECK(this->i2cEeepromAddr >= 0) << "Invalid EEPROM address " << this->i2cEeepromAddr;
+
+	// open SPI device
+	const char *file = this->spiDeviceFile.c_str();
+
+	this->spiDevice = open(file, O_RDWR);
+	PLOG_IF(FATAL, this->spiDevice == -1) << "Couldn't open SPI device at " << file;
+
+
+#ifdef __linux__
+	// configure SPI mode (CPHA)
+	const uint8_t mode = SPI_CPHA;
+
+	err = ioctl(this->spiDevice, SPI_IOC_WR_MODE, &mode);
+	PLOG_IF(FATAL, err == -1) << "Couldn't set write mode";
+
+	err = ioctl(this->spiDevice, SPI_IOC_RD_MODE, &mode);
+	PLOG_IF(FATAL, err == -1) << "Couldn't set read mode";
+
+	// bits per word (8)
+	const uint8_t bits = 8;
+
+	err = ioctl(this->spiDevice, SPI_IOC_WR_BITS_PER_WORD, &bits);
+	PLOG_IF(FATAL, err == -1) << "Couldn't set write word length";
+
+	err = ioctl(this->spiDevice, SPI_IOC_RD_BITS_PER_WORD, &bits);
+	PLOG_IF(FATAL, err == -1) << "Couldn't set read word length";
+
+	// configure maximum speed
+	uint32_t speed = this->spiBaud;
+
+	err = ioctl(this->spiDevice, SPI_IOC_WR_MAX_SPEED_HZ, &speed);
+	PLOG_IF(FATAL, err == -1) << "Couldn't set write max speed";
+
+	err = ioctl(this->spiDevice, SPI_IOC_RD_MAX_SPEED_HZ, &speed);
+	PLOG_IF(FATAL, err == -1) << "Couldn't set read max speed";
+#endif
 }
 
 /**
@@ -99,12 +148,20 @@ void MAX10OutputPlugin::allocateFramebuffer(void) {
  * Resets the hardware and de-allocates memory.
  */
 MAX10OutputPlugin::~MAX10OutputPlugin() {
+	int err;
+
 	// clean up the thread
 	this->shutDownThread();
 
 	// de-allocate framebuffer
 	if(this->framebuffer) {
 		free(this->framebuffer);
+	}
+
+	// close the SPI device
+	if(this->spiDevice != -1) {
+		err = close(this->spiDevice);
+		PLOG_IF(ERROR, err < 0) << "Couldn't close SPI device: " << err;
 	}
 }
 
@@ -512,12 +569,47 @@ void MAX10OutputPlugin::reset(void) {
 }
 
 /**
+ * Does an SPI transaction, reading/writing `length` bytes into the specified
+ * buffers.
+ *
+ * @return 0 if successful, a negative error code otherwise.
+ */
+int MAX10OutputPlugin::doSpiTransaction(void *read, void *write, size_t length) {
+	int err;
+
+#ifdef __linux__
+	// set up the SPI struct
+	struct spi_ioc_transfer txn =
+      {
+        .tx_buf = (unsigned long) write,
+        .rx_buf = (unsigned long) read,
+        .len = length,
+        .delay_usecs = 0,
+        .speed_hz = this->spiBaud,
+        .bits_per_word = 8,
+      };
+
+	  // perform transfer
+	  err = ioctl(this->spiDevice, SPI_IOC_MESSAGE(1), &txn);
+	  PLOG_IF(ERROR, err < 0) << "Couldn't do SPI transfer";
+#endif
+
+	  // done!
+	  return err;
+}
+
+
+
+/**
  * Reads the status register to determine which channels are actively sending
  * data.
  */
 int MAX10OutputPlugin::readStatusReg(std::bitset<16> &status) {
 	// clear the output status bitset
 	status.reset();
+
+	// write and read buffers
+	uint8_t cmd = 0x00;
 
 	// TODO: implement
 	return 0;
