@@ -83,7 +83,7 @@ void LichtensteinPluginHandler::loadInputPlugins(void) {
 void LichtensteinPluginHandler::loadOutputPlugins(void) {
 	// read from the INI
 	std::string path = this->config->Get("output", "module_dir", "unknown");
-	CHECK(path != "unknown") << "output module_dir was not set in config, aborting";
+	CHECK(path != "unknown") << "output module_dir was not set in config, fix your shit, what the fuck";
 
 	this->loadPluginsInDirectory(path);
 }
@@ -145,7 +145,7 @@ int LichtensteinPluginHandler::loadPlugin(std::string &path) {
 
 	// attempt to dlopen it
 	lib = dlopen(cPath, RTLD_LAZY);
-	CHECK(lib != nullptr) << "Couldn't open library!";
+	CHECK(lib != nullptr) << "Couldn't open library, what the fuck";
 
 	// validate compatibility
 	err = this->isPluginCompatible(lib);
@@ -207,7 +207,7 @@ void LichtensteinPluginHandler::callPluginConstructors(void) {
 		if(infoAddr == nullptr) {
 			// we shouldn't ever get here
 			LOG(FATAL) << "Plugin with handle 0x" << std::hex << handle
-				<< " suddenly lost its info struct...";
+				<< " suddenly lost its info struct, what the fuck is going on";
 
 			continue;
 		}
@@ -237,7 +237,7 @@ void LichtensteinPluginHandler::callPluginDestructors(void) {
 		if(infoAddr == nullptr) {
 			// we shouldn't ever get here
 			LOG(FATAL) << "Plugin with handle 0x" << std::hex << handle
-				<< " suddenly lost its info struct...";
+				<< " suddenly lost its info struct, shit's fucked";
 
 			continue;
 		}
@@ -252,7 +252,8 @@ void LichtensteinPluginHandler::callPluginDestructors(void) {
 		err = dlclose(handle);
 
 		if(err != 0) {
-			LOG(WARNING) << "Couldn't unload " << path << ": " << dlerror();
+			LOG(WARNING) << "Couldn't unload " << path << ": " << dlerror()
+				<< "; what the fuck?";
 		}
 	}
 }

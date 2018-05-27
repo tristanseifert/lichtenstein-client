@@ -72,19 +72,19 @@ ProtocolHandler::ProtocolHandler(INIReader *_config) : config(_config) {
 
 	// create the threada communicating pipe
 	err = pipe(fd);
-	PLOG_IF(FATAL, err != 0) << "Couldn't create pipe";
+	PLOG_IF(FATAL, err != 0) << "Couldn't create pipe, fcntl is fucked";
 
 	this->workerPipeRead = fd[0];
 	this->workerPipeWrite = fd[1];
 
 	// enable non-blocking IO on the read end of the pipe
 	int flags = fcntl(this->workerPipeRead, F_GETFL);
-	PCHECK(flags != -1) << "Couldn't get flags";
+	PCHECK(flags != -1) << "Couldn't get flags, fcntl is fucked";
 
 	flags |= O_NONBLOCK;
 
 	err = fcntl(this->workerPipeRead, F_SETFL, flags);
-	PCHECK(err != -1) << "Couldn't set flags";
+	PCHECK(err != -1) << "Couldn't set flags, fcntl is fucked";
 
 	// start the thread
 	this->start();
@@ -113,7 +113,7 @@ ProtocolHandler::~ProtocolHandler() {
  */
 void ProtocolHandler::start(void) {
 	// make sure there's no existing thread
-	CHECK(this->worker == nullptr) << "Trying to start thread when it's already running";
+	CHECK(this->worker == nullptr) << "Trying to start thread when it's already running, fuck off";
 
 	// run
 	this->run = true;
@@ -136,7 +136,7 @@ void ProtocolHandler::stop(void) {
 	err = write(this->workerPipeWrite, &blah, sizeof(blah));
 
 	if(err < 0) {
-		PLOG(ERROR) << "Couldn't write to pipe";
+		PLOG(ERROR) << "Couldn't write to pipe, shit's fucked";
 
 		// if we can't write to the pipe we're fucked, just kill the socket
 		close(this->socket);
@@ -410,7 +410,7 @@ void ProtocolHandler::handlePacket(void *packet, size_t length, struct msghdr *m
 					delete fr;
 				}
 			} else {
-				LOG(WARNING) << "Received framebuffer data from " << srcAddr << ", but node isn't adopted";
+				LOG(WARNING) << "Received framebuffer data from " << srcAddr << ", but node isn't adopted, that server needs to fuck off";
 			}
 			break;
 

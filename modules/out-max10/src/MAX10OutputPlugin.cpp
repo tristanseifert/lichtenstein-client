@@ -157,7 +157,7 @@ void MAX10OutputPlugin::shutDownThread(void) {
 	err = write(this->workerPipeWrite, &blah, sizeof(blah));
 
 	if(err < 0) {
-		PLOG(ERROR) << "Couldn't write to pipe";
+		PLOG(ERROR) << "Couldn't write to pipe, shit's fucked";
 
 		// if we can't write to the pipe we're fucked, just kill the thread
 		delete this->worker;
@@ -568,7 +568,7 @@ int MAX10OutputPlugin::queueFrame(OutputFrame *frame) {
 	// notify the worker thread
 	int blah = kWorkerCheckQueue;
 	err = write(this->workerPipeWrite, &blah, sizeof(blah));
-	PLOG_IF(ERROR, err < 0) << "Couldn't write to pipe: " << err;
+	PLOG_IF(ERROR, err < 0) << "Couldn't write to pipe, shit's fucked: " << err;
 
 	// done
 	return 0;
@@ -590,7 +590,7 @@ int MAX10OutputPlugin::outputChannels(std::bitset<32> &channels) {
 
 	// was there an error writing to the pipe?
 	if(err < 0) {
-		PLOG(ERROR) << "Couldn't write to pipe: " << err;
+		PLOG(ERROR) << "Couldn't write to pipe, shit's fucked: " << err;
 		return err;
 	}
 
