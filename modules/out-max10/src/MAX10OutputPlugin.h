@@ -54,12 +54,25 @@ class MAX10OutputPlugin : public OutputPlugin {
 		void reset(void);
 		int doSpiTransaction(void *, void *, size_t);
 
+		int sendSpiCommand(uint8_t command, void *read, void *write, size_t length) {
+			return this->sendSpiCommand(command, nullptr, 0, read, write, length);
+		}
+		int sendSpiCommand(uint8_t, void *, size_t, void *, void *, size_t);
+
 		int readStatusReg(std::bitset<16> &status);
 
 		int writePeriphMem(uint32_t, void *, size_t);
 		int writePeriphReg(unsigned int, uint32_t, uint16_t);
 
 	private:
+		// commands written to SPI device
+		enum {
+			kCommandReadStatus	= 0x00,
+			kCommandWriteMem	= 0x01,
+			kCommandWriteReg	= 0x02,
+		};
+
+		// commands written on pipe
 		enum {
 			kWorkerNOP,
 			kWorkerShutdown,

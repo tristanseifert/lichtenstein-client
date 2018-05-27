@@ -35,6 +35,7 @@ void MAX10ThreadEntry(void *ctx) {
 }
 
 
+
 /**
  * Invokes the constructor for the plugin and returns it.
  */
@@ -401,6 +402,8 @@ void MAX10OutputPlugin::sendFrameToFramebuffer(OutputFrame *frame) {
 	this->handler->acknowledgeFrame(frame);
 }
 
+
+
 /**
  * Finds a contiguous block in framebuffer memory big enough to fit `size` bytes
  * then returns its address, or -1 if not possible.
@@ -556,86 +559,6 @@ const unsigned int MAX10OutputPlugin::maxChannels(void) {
 }
 
 int MAX10OutputPlugin::setEnabledChannels(unsigned int channels) {
-	return -1;
-}
-
-
-
-/**
- * Resets the output chip.
- */
-void MAX10OutputPlugin::reset(void) {
-	// TODO: implement
-}
-
-/**
- * Does an SPI transaction, reading/writing `length` bytes into the specified
- * buffers.
- *
- * @return 0 if successful, a negative error code otherwise.
- */
-int MAX10OutputPlugin::doSpiTransaction(void *read, void *write, size_t length) {
-	int err;
-
-#ifdef __linux__
-	// set up the SPI struct
-	struct spi_ioc_transfer txn = {
-		.tx_buf = (unsigned long) write,
-		.rx_buf = (unsigned long) read,
-		
-		.len = length,
-		.speed_hz = this->spiBaud,
-		
-		.delay_usecs = 0,
-		.bits_per_word = 8,
-		.cs_change = true,
-	};
-
-	// perform transfer
-	err = ioctl(this->spiDevice, SPI_IOC_MESSAGE(1), &txn);
-	PLOG_IF(ERROR, err < 0) << "Couldn't do SPI transfer";
-#endif
-
-	// done!
-	return err;
-}
-
-
-
-/**
- * Reads the status register to determine which channels are actively sending
- * data.
- */
-int MAX10OutputPlugin::readStatusReg(std::bitset<16> &status) {
-	// clear the output status bitset
-	status.reset();
-
-	// write and read buffers
-	uint8_t cmd = 0x00;
-
-	// TODO: implement
-	return 0;
-}
-
-/**
- * Writes the given data into the peripheral's memory.
- *
- * @return The number of bytes written if successful, a negative error code
- * otherwise.
- */
-int MAX10OutputPlugin::writePeriphMem(uint32_t addr, void *data, size_t length) {
-	// TODO: implement
-	return -1;
-}
-
-/**
- * Writes the address and length into the given channel's output registers; this
- * will immediately start outputting data for that channel.
- *
- * @return 0 if successful, negative error code otherwise.
- */
-int MAX10OutputPlugin::writePeriphReg(unsigned int channel, uint32_t addr, uint16_t length) {
-	// TODO: implement
 	return -1;
 }
 
