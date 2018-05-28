@@ -68,27 +68,6 @@ class MAX10OutputPlugin : public OutputPlugin {
 		int writePeriphReg(unsigned int, uint32_t, uint16_t);
 
 	private:
-		// emulate sysfs on non-linux filesystems
-#ifdef __linux__
-		const std::string gpioAttribute = "/sys/class/gpio/gpio$PIN/$ATTRIBUTE";
-
-		const std::string gpioExport = "/sys/class/gpio/export";
-		const std::string gpioUnExport = "/sys/class/gpio/unexport";
-#else
-		const std::string gpioAttribute = "./sysfs/gpio_$PIN_$ATTRIBUTE";
-
-		const std::string gpioExport = "./sysfs/export";
-		const std::string gpioUnExport = "./sysfs/unexport";
-#endif
-
-		int exportGPIO(int);
-		int unExportGPIO(int);
-		int configureGPIO(int);
-		int configureGPIO(int, std::string, std::string);
-
-		int writeGPIO(int, bool);
-
-	private:
 		// commands written to SPI device
 		enum {
 			kCommandReadStatus	= 0x00,
