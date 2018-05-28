@@ -1,5 +1,8 @@
 #!/bin/sh
 
+echo 17 > /sys/class/gpio/unexport
+echo 3 > /sys/class/gpio/unexport
+
 echo 500 > /sys/class/gpio/unexport
 echo 501 > /sys/class/gpio/unexport
 echo 502 > /sys/class/gpio/unexport

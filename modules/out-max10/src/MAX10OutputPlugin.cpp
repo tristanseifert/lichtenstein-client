@@ -48,7 +48,7 @@ OutputPlugin *MAX10OutputPlugin::create(PluginHandler *handler, void *romData, s
  */
 MAX10OutputPlugin::MAX10OutputPlugin(PluginHandler *_handler, void *romData, size_t length) : handler(_handler), OutputPlugin(romData, length) {
 	// get SPI settings
-	this->configureSPI();
+	this->configureHardware();
 	// allocate framebuffer
 	this->allocateFramebuffer();
 
@@ -57,61 +57,6 @@ MAX10OutputPlugin::MAX10OutputPlugin(PluginHandler *_handler, void *romData, siz
 
 	// set up the worker thread
 	this->setUpThread();
-}
-
-/**
- * Configures the SPI bus.
- */
-void MAX10OutputPlugin::configureSPI(void) {
-	int err;
-
-	INIReader *config = this->handler->getConfig();
-
-	// TODO: read from EEPROM data
-	this->spiBaud = config->GetInteger("output_max10", "baud", 2500000);
-
-	this->spiDeviceFile = config->Get("output_max10", "device", "");
-	CHECK(this->spiDeviceFile != "") << "Invalid device file: " << this->spiDeviceFile;
-
-	// get EEPROM address
-	this->i2cEeepromAddr = config->GetInteger("output_max10", "eeprom", 0x40);
-	CHECK(this->i2cEeepromAddr >= 0) << "Invalid EEPROM address " << this->i2cEeepromAddr;
-
-	// open SPI device
-	const char *file = this->spiDeviceFile.c_str();
-
-	this->spiDevice = open(file, O_RDWR);
-	PLOG_IF(FATAL, this->spiDevice == -1) << "Couldn't open SPI device at " << file;
-
-
-#ifdef __linux__
-	// configure SPI mode (CPHA)
-	const uint8_t mode = SPI_CPHA;
-
-	err = ioctl(this->spiDevice, SPI_IOC_WR_MODE, &mode);
-	PLOG_IF(FATAL, err == -1) << "Couldn't set write mode";
-
-	err = ioctl(this->spiDevice, SPI_IOC_RD_MODE, &mode);
-	PLOG_IF(FATAL, err == -1) << "Couldn't set read mode";
-
-	// bits per word (8)
-	const uint8_t bits = 8;
-
-	err = ioctl(this->spiDevice, SPI_IOC_WR_BITS_PER_WORD, &bits);
-	PLOG_IF(FATAL, err == -1) << "Couldn't set write word length";
-
-	err = ioctl(this->spiDevice, SPI_IOC_RD_BITS_PER_WORD, &bits);
-	PLOG_IF(FATAL, err == -1) << "Couldn't set read word length";
-
-	// configure maximum speed
-	uint32_t speed = this->spiBaud;
-
-	err = ioctl(this->spiDevice, SPI_IOC_WR_MAX_SPEED_HZ, &speed);
-	PLOG_IF(FATAL, err == -1) << "Couldn't set write max speed";
-
-	err = ioctl(this->spiDevice, SPI_IOC_RD_MAX_SPEED_HZ, &speed);
-	PLOG_IF(FATAL, err == -1) << "Couldn't set read max speed";
-#endif
 }
 
 /**
@@ -159,11 +104,8 @@ MAX10OutputPlugin::~MAX10OutputPlugin() {
 		// free(this->framebuffer);
 	// }
 
-	// close the SPI device
-	if(this->spiDevice != -1) {
-		err = close(this->spiDevice);
-		PLOG_IF(ERROR, err < 0) << "Couldn't close SPI device: " << err;
-	}
+	// clean up hardware
+	this->cleanUpHardware();
 }
 
 

@@ -40,7 +40,9 @@ class MAX10OutputPlugin : public OutputPlugin {
 
 		void workerEntry(void);
 
-		void configureSPI(void);
+		void configureHardware(void);
+		void cleanUpHardware(void);
+
 		void allocateFramebuffer(void);
 
 		void sendFrameToFramebuffer(OutputFrame *);
@@ -64,6 +66,27 @@ class MAX10OutputPlugin : public OutputPlugin {
 
 		int writePeriphMem(uint32_t, void *, size_t);
 		int writePeriphReg(unsigned int, uint32_t, uint16_t);
+
+	private:
+		// emulate sysfs on non-linux filesystems
+#ifdef __linux__
+		const std::string gpioAttribute = "/sys/class/gpio/gpio$PIN/$ATTRIBUTE";
+
+		const std::string gpioExport = "/sys/class/gpio/export";
+		const std::string gpioUnExport = "/sys/class/gpio/unexport";
+#else
+		const std::string gpioAttribute = "./sysfs/gpio_$PIN_$ATTRIBUTE";
+
+		const std::string gpioExport = "./sysfs/export";
+		const std::string gpioUnExport = "./sysfs/unexport";
+#endif
+
+		int exportGPIO(int);
+		int unExportGPIO(int);
+		int configureGPIO(int);
+		int configureGPIO(int, std::string, std::string);
+
+		int writeGPIO(int, bool);
 
 	private:
 		// commands written to SPI device
@@ -101,6 +124,10 @@ class MAX10OutputPlugin : public OutputPlugin {
 		std::vector<std::tuple<unsigned int, uint32_t, uint16_t>> channelOutputMap;
 		// list of (channel, address, length) currently outputting
 		std::vector<std::tuple<unsigned int, uint32_t, uint16_t>> activeChannels;
+
+		// GPIO for reset and enable pins
+		int resetGPIO = -1;
+		int enableGPIO = -1;
 
 		// SPI baud rate, device file, etc
 		unsigned int i2cEeepromAddr = 0;
