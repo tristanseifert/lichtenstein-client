@@ -4,6 +4,8 @@
  */
 #include "MAX10OutputPlugin.h"
 
+#include "GPIOHelper.h"
+
 #include <glog/logging.h>
 
 #include <bitset>
@@ -38,22 +40,6 @@
 
 
 /**
- * String replacement helper
- */
-static bool replace(std::string& str, const std::string& from, const std::string& to) {
-    size_t start_pos = str.find(from);
-
-	if(start_pos == std::string::npos) {
-        return false;
-	}
-
-    str.replace(start_pos, from.length(), to);
-    return true;
-}
-
-
-
-/**
  * Configures the SPI bus and output GPIOs.
  */
 void MAX10OutputPlugin::configureHardware(void) {
@@ -65,20 +51,20 @@ void MAX10OutputPlugin::configureHardware(void) {
 	this->resetGPIO = config->GetInteger("output_max10", "gpio_reset", -1);
 	CHECK(this->resetGPIO > 0) << "Invalid reset GPIO value: " << this->resetGPIO;
 
-	err = this->exportGPIO(this->resetGPIO);
+	err = GPIOHelper::exportGPIO(this->resetGPIO);
 	CHECK(err == 0) << "Couldn't export reset GPIO: " << err;
 
-	err = this->configureGPIO(this->resetGPIO);
+	err = GPIOHelper::configureGPIO(this->resetGPIO, "direction", "high");
 	CHECK(err == 0) << "Couldn't configure reset GPIO: " << err;
 
 	// Get GPIO for enable pin
 	this->enableGPIO = config->GetInteger("output_max10", "gpio_enable", -1);
 	CHECK(this->enableGPIO > 0) << "Invalid enable GPIO value: " << this->enableGPIO;
 
-	err = this->exportGPIO(this->enableGPIO);
+	err = GPIOHelper::exportGPIO(this->enableGPIO);
 	CHECK(err == 0) << "Couldn't export enable GPIO: " << err;
 
-	err = this->configureGPIO(this->enableGPIO);
+	err = GPIOHelper::configureGPIO(this->enableGPIO, "direction", "high");
 	CHECK(err == 0) << "Couldn't configure enable GPIO: " << err;
 
 
@@ -145,10 +131,10 @@ void MAX10OutputPlugin::cleanUpHardware(void) {
 	this->reset();
 
 	// Un-export the GPIOs
-	err = this->unExportGPIO(this->resetGPIO);
+	err = GPIOHelper::unExportGPIO(this->resetGPIO);
 	CHECK(err == 0) << "Couldn't unexport reset GPIO: " << err;
 
-	err = this->unExportGPIO(this->enableGPIO);
+	err = GPIOHelper::unExportGPIO(this->enableGPIO);
 	CHECK(err == 0) << "Couldn't unexport enable GPIO: " << err;
 }
 
@@ -164,14 +150,14 @@ void MAX10OutputPlugin::reset(void) {
 	int err;
 
 	// pull the reset line low
-	err = this->writeGPIO(this->resetGPIO, false);
+	err = GPIOHelper::writeGPIO(this->resetGPIO, false);
 	CHECK(err == 0) << "Couldn't assert reset: " << err;
 
 	// wait for 10ms
 	usleep((1000 * 10));
 
 	// pull the reset line back high
-	err = this->writeGPIO(this->resetGPIO, true);
+	err = GPIOHelper::writeGPIO(this->resetGPIO, true);
 	CHECK(err == 0) << "Couldn't deassert reset: " << err;
 }
 
@@ -371,147 +357,4 @@ int MAX10OutputPlugin::writePeriphReg(unsigned int channel, uint32_t addr, uint1
 		<< ", length 0x" << length << " for channel " << std::dec << channel
 		<< ": " << err;
 	return err;
-}
-
-
-
-/**
- * Exports the GPIO on the specified pin.
- *
- * @returns 0 if successful, error code otherwise.
- */
-int MAX10OutputPlugin::exportGPIO(int pin) {
-	int err;
-
-	// get the location of the file
-	std::string path = this->gpioExport;
-	replace(path, "$PIN", std::to_string(pin));
-
-	// open the file for writing
-	FILE *f = fopen(path.c_str(), "wb");
-
-	if(f == nullptr) {
-		PLOG(WARNING) << "Couldn't open " << path;
-		return errno;
-	}
-
-	// write the string
-	std::string pinStr = std::to_string(pin);
-
-	const char *str = pinStr.c_str();
-	size_t len = strlen(str);
-
-	err = fwrite(str, 1, len, f);
-	PLOG_IF(WARNING, err != len) << "Couldn't write to " << path
-		<< " (wrote " << err << " bytes)";
-
-	// close the file again
-	err = fclose(f);
-	PLOG_IF(WARNING, err != 0) << "Couldn't close " << path;
-
-	return err;
-}
-
-/**
- * Un-exports the GPIO on the specified pin.
- *
- * @returns 0 if successful, error code otherwise.
- */
-int MAX10OutputPlugin::unExportGPIO(int pin) {
-	int err;
-
-	// get the location of the file
-	std::string path = this->gpioUnExport;
-	replace(path, "$PIN", std::to_string(pin));
-
-	// open the file for writing
-	FILE *f = fopen(path.c_str(), "wb");
-
-	if(f == nullptr) {
-		PLOG(WARNING) << "Couldn't open " << path;
-		return errno;
-	}
-
-	// write the string
-	std::string pinStr = std::to_string(pin);
-
-	const char *str = pinStr.c_str();
-	size_t len = strlen(str);
-
-	err = fwrite(str, 1, len, f);
-	PLOG_IF(WARNING, err != len) << "Couldn't write to " << path
-		<< " (wrote " << err << " bytes)";
-
-	// close the file again
-	err = fclose(f);
-	PLOG_IF(WARNING, err != 0) << "Couldn't close " << path;
-
-	return err;
-}
-
-/**
- * Configures the pin as an input, with a weak pull-up if possible.
- *
- * @returns 0 if successful, error code otherwise.
- */
-int MAX10OutputPlugin::configureGPIO(int pin) {
-	int err;
-
-	// configure it as an input
-	err = this->configureGPIO(pin, "direction", "high");
-
-	if(err != 0) {
-		LOG(WARNING) << "Couldn't configure pin " << pin << " as output: " << err;
-		return err;
-	}
-
-	// success
-	return 0;
-}
-
-/**
- * Writes the given value to the given GPIO configuration file.
- *
- * @return 0 if successful, an error code otherwise.
- */
-int MAX10OutputPlugin::configureGPIO(int pin, std::string attribute, std::string value) {
-	int err;
-
-	// get the location of the file
-	std::string path = this->gpioAttribute;
-	replace(path, "$PIN", std::to_string(pin));
-	replace(path, "$ATTRIBUTE", attribute);
-
-	// open the file for writing
-	FILE *f = fopen(path.c_str(), "wb");
-
-	if(f == nullptr) {
-		PLOG(WARNING) << "Couldn't open " << path;
-		return errno;
-	}
-
-	// write the string
-	const char *str = value.c_str();
-	size_t len = strlen(str);
-
-	err = fwrite(str, 1, len, f);
-	PLOG_IF(WARNING, err != len) << "Couldn't write to " << path
-		<< " (wrote " << err << " bytes)";
-
-	// close the file again
-	err = fclose(f);
-	PLOG_IF(WARNING, err != 0) << "Couldn't close " << path;
-
-	return err;
-}
-
-/**
- * Writes the value of an output GPIO.
- */
-int MAX10OutputPlugin::writeGPIO(int pin, bool value) {
-	if(value) {
-		return this->configureGPIO(pin, "value", "1");
-	} else {
-		return this->configureGPIO(pin, "value", "0");
-	}
 }
