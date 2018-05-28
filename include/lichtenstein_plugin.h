@@ -11,7 +11,12 @@
 /**
  * Magic value for plugins.
  */
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wmultichar"
+
 #define PLUGIN_MAGIC				'AGES'
+
+#pragma GCC diagnostic pop
 
 /**
  * Current client ABI version. Plugins whose ABI number doesn't match this value

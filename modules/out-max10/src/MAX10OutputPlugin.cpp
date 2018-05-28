@@ -129,8 +129,8 @@ void MAX10OutputPlugin::allocateFramebuffer(void) {
 			<< kFBMapBlockSize << "; config specified " << this->framebufferLen;
 	}
 
-	this->framebuffer = static_cast<uint8_t *>(malloc(this->framebufferLen));
-	CHECK(this->framebuffer != nullptr) << "Couldn't allocate framebuffer!";
+	// this->framebuffer = static_cast<uint8_t *>(malloc(this->framebufferLen));
+	// CHECK(this->framebuffer != nullptr) << "Couldn't allocate framebuffer!";
 
 	// allocate the framebuffer use
 	size_t blocks = this->framebufferLen / kFBMapBlockSize;
@@ -155,9 +155,9 @@ MAX10OutputPlugin::~MAX10OutputPlugin() {
 	this->shutDownThread();
 
 	// de-allocate framebuffer
-	if(this->framebuffer) {
-		free(this->framebuffer);
-	}
+	// if(this->framebuffer) {
+		// free(this->framebuffer);
+	// }
 
 	// close the SPI device
 	if(this->spiDevice != -1) {
@@ -314,6 +314,11 @@ void MAX10OutputPlugin::workerEntry(void) {
 
 					// outputs all channels for which we have data
 					case kWorkerOutputAllChannels: {
+						// check to see which parts of memory we can release
+						// TODO: does this release memory we are outputting with?
+						this->releaseUnusedFramebufferMem();
+
+						// attempt to output data for all channels
 						this->outputChannelsWithData();
 						break;
 					}
@@ -348,6 +353,7 @@ void MAX10OutputPlugin::sendFrameToFramebuffer(OutputFrame *frame) {
 	if(addr == -1) {
 		// increment counter and log a message
 		this->framesDroppedDueToInsufficientMem++;
+
 		LOG(WARNING) << "Couldn't find memory for frame " << frame;
 		LOG_EVERY_N(WARNING, 10) << "Dropped "
 			<< this->framesDroppedDueToInsufficientMem << "frames due to "
@@ -359,8 +365,8 @@ void MAX10OutputPlugin::sendFrameToFramebuffer(OutputFrame *frame) {
 	}
 
 	// copy it into the framebuffer
-	uint8_t *ptr = this->framebuffer + addr;
-	memcpy(ptr, frame->getData(), frame->getDataLen());
+	// uint8_t *ptr = this->framebuffer + addr;
+	// memcpy(ptr, frame->getData(), frame->getDataLen());
 
 	// mark that region of data as used in the framebuffer
 	VLOG(2) << "Allocating " << frame->getDataLen() << " bytes for channel "
@@ -376,7 +382,7 @@ void MAX10OutputPlugin::sendFrameToFramebuffer(OutputFrame *frame) {
 	err = this->writePeriphMem(addr, frame->getData(), frame->getDataLen());
 
 	if(err < 0) {
-		LOG(ERROR) << "Couldn't write to peripheral: " << err;
+		LOG(ERROR) << "Couldn't write peripheral memory: " << err;
 
 		// nack the frame
 		this->handler->acknowledgeFrame(frame, true);
@@ -447,6 +453,8 @@ int MAX10OutputPlugin::findBlockOfSize(size_t size) {
 	}
 
 	// if we get down here, no free block could be found
+	LOG(ERROR) << "Couldn't satisfy framebuffer allocation of " << size
+	 	<< " bytes; have " << this->getFbBytesFree() << " bytes free";
 	return -1;
 }
 
@@ -465,6 +473,26 @@ void MAX10OutputPlugin::setBlockState(uint32_t addr, size_t size, bool state) {
 	for(int i = 0; i < count; i++) {
 		this->fbUsedMap[start++] = state;
 	}
+}
+
+/**
+ * Calculates the number of free bytes of framebuffer memory, aka all elements
+ * in the framebuffer useage map that are false.
+ */
+int MAX10OutputPlugin::getFbBytesFree(void) {
+	int blocks = 0;
+
+	// iterate over the ENTIRE framebuffer
+	for(int i = 0; i < this->fbUsedMap.size(); i++) {
+		// is this block unset?
+		if(this->fbUsedMap[i] == false) {
+			// if so, increment block counter
+			blocks++;
+		}
+	}
+
+	// convert blocks to bytes
+	return (blocks * kFBMapBlockSize);
 }
 
 
@@ -508,7 +536,14 @@ void MAX10OutputPlugin::outputChannelsWithData(void) {
 
 /**
  * Releases memory in the framebuffer that was previously allocated to an active
- * channel, but is no longer used.
+ * channel, but is no longer used: this is done by checking whether a channel
+ * is outputting data (via a status register read,) and if not, finding all
+ * entries in the `activeChannels` vector for that channel, and marking the
+ * blocks of memory specified by those entries as free.
+ *
+ * This should be run immediately before channels are set to output data again,
+ * or, in other words, after as long of a wait as possible after commanding
+ * channels to output data.
  */
 void MAX10OutputPlugin::releaseUnusedFramebufferMem(void) {
 	std::bitset<16> status;
@@ -526,6 +561,7 @@ void MAX10OutputPlugin::releaseUnusedFramebufferMem(void) {
 	for(int i = 0; i < status.size(); i++) {
 		// is this channel no longer active?
 		if(status[i] == false) {
+again: ;
 			// try to find an entry for it
 			for(int j = 0; j < this->activeChannels.size(); j++) {
 				auto tuple = this->activeChannels[j];
@@ -543,6 +579,10 @@ void MAX10OutputPlugin::releaseUnusedFramebufferMem(void) {
 
 					// remove it!
 					this->activeChannels.erase(this->activeChannels.begin() + j);
+
+					// check again whether there's any more for this channel
+					// TODO: this can probably be done without goto's
+					goto again;
 				}
 			}
 		}
@@ -551,26 +591,17 @@ void MAX10OutputPlugin::releaseUnusedFramebufferMem(void) {
 
 
 
-const std::string MAX10OutputPlugin::name(void) {
-	return "MAX10 FPGA Output Board";
-}
-const unsigned int MAX10OutputPlugin::maxChannels(void) {
-	return 16;
-}
-
-int MAX10OutputPlugin::setEnabledChannels(unsigned int channels) {
-	return -1;
-}
-
-
-
 /**
- * Queues a frame for output: this could convert the frame to the output
- * representation, for example.
+ * Queues a frame for output: this just pushes the frame into an internal queue
+ * that the background worker thread processes.
  */
 int MAX10OutputPlugin::queueFrame(OutputFrame *frame) {
 	int err;
 
+	// sanity checks
+	CHECK(frame != nullptr) << "What the fuck, frame is nullptr?";
+
+	// try to push it on the queue
 	try {
 		// get a lock on the frame queue
 		std::lock_guard<std::mutex> lck(this->outFramesMutex);
@@ -583,8 +614,8 @@ int MAX10OutputPlugin::queueFrame(OutputFrame *frame) {
 	}
 
 	// notify the worker thread
-	int blah = kWorkerCheckQueue;
-	err = write(this->workerPipeWrite, &blah, sizeof(blah));
+	int cmd = kWorkerCheckQueue;
+	err = write(this->workerPipeWrite, &cmd, sizeof(cmd));
 	PLOG_IF(ERROR, err < 0) << "Couldn't write to pipe, shit's fucked: " << err;
 
 	// done
@@ -602,8 +633,8 @@ int MAX10OutputPlugin::outputChannels(std::bitset<32> &channels) {
 	this->channelsToOutput = channels;
 
 	// notify worker thread
-	int blah = kWorkerOutputAllChannels;
-	err = write(this->workerPipeWrite, &blah, sizeof(blah));
+	int cmd = kWorkerOutputAllChannels;
+	err = write(this->workerPipeWrite, &cmd, sizeof(cmd));
 
 	// was there an error writing to the pipe?
 	if(err < 0) {
@@ -612,5 +643,32 @@ int MAX10OutputPlugin::outputChannels(std::bitset<32> &channels) {
 	}
 
 	// if we get down here, we presumeably output everything
+	return 0;
+}
+
+
+
+/**
+ * Returns the run-time name of this output plugin.
+ */
+const std::string MAX10OutputPlugin::name(void) {
+	return "MAX10 FPGA Output Board";
+}
+
+/**
+ * Returns the maximum number of supported output channels: this can vary among
+ * different versions of the hardware, but for now, it's hard-coded at 16.
+ *
+ * TODO: Read this out of EEPROM data.
+ */
+const unsigned int MAX10OutputPlugin::maxChannels(void) {
+	return 16;
+}
+
+/**
+ * Sets which channels are enabled for output. This doesn't do anything here, as
+ * we need to explicitly load each channel's registers.
+ */
+int MAX10OutputPlugin::setEnabledChannels(unsigned int channels) {
 	return 0;
 }

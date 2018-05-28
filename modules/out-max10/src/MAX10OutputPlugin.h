@@ -50,6 +50,7 @@ class MAX10OutputPlugin : public OutputPlugin {
 
 		int findBlockOfSize(size_t);
 		void setBlockState(uint32_t, size_t, bool);
+		int getFbBytesFree(void);
 
 		void reset(void);
 		int doSpiTransaction(void *, void *, size_t);
@@ -111,7 +112,7 @@ class MAX10OutputPlugin : public OutputPlugin {
 		unsigned int spiDevice = -1;
 
 		// framebuffer memory
-		uint8_t *framebuffer = nullptr;
+		// uint8_t *framebuffer = nullptr;
 		size_t framebufferLen = 0;
 
 		// channels to output

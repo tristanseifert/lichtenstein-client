@@ -122,7 +122,7 @@ int MAX10OutputPlugin::sendSpiCommand(uint8_t command, void *header, size_t head
 	}
 
 	// is there data to read/write?
-	if((read | write) && length > 0) {
+	if((read || write) && length > 0) {
 		txn[i++] = {
 			.tx_buf = (unsigned long) read,
 			.rx_buf = (unsigned long) write,
