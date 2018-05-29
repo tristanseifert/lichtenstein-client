@@ -637,13 +637,15 @@ void MAX10OutputPlugin::doOutputTest(void) {
 	const size_t bufferElements = 300;
 	uint32_t *buffer = new uint32_t[bufferElements];
 
+	CHECK(buffer != nullptr) << "Couldn't allocate buffer, system is super fucked";
+
 	// Upload a red buffer to memory
 	for(int i = 0; i < bufferElements; i++) {
 		buffer[i] = 0xFF000000;
 	}
 
 	err = this->writePeriphMem(0x0000, buffer, 4 * bufferElements);
-	CHECK(err == 0) << "Couldn't write red buffer to memory";
+	CHECK(err > 0) << "Couldn't write red buffer to memory";
 
 	// Upload a green buffer to memory
 	for(int i = 0; i < bufferElements; i++) {
@@ -651,7 +653,7 @@ void MAX10OutputPlugin::doOutputTest(void) {
 	}
 
 	err = this->writePeriphMem(0x1000, buffer, 4 * bufferElements);
-	CHECK(err == 0) << "Couldn't write green buffer to memory";
+	CHECK(err > 0) << "Couldn't write green buffer to memory";
 
 	// Upload a blue buffer to memory
 	for(int i = 0; i < bufferElements; i++) {
@@ -659,7 +661,7 @@ void MAX10OutputPlugin::doOutputTest(void) {
 	}
 
 	err = this->writePeriphMem(0x2000, buffer, 4 * bufferElements);
-	CHECK(err == 0) << "Couldn't write green buffer to memory";
+	CHECK(err > 0) << "Couldn't write green buffer to memory";
 
 	// Upload a white buffer to memory
 	for(int i = 0; i < bufferElements; i++) {
@@ -667,7 +669,7 @@ void MAX10OutputPlugin::doOutputTest(void) {
 	}
 
 	err = this->writePeriphMem(0x3000, buffer, 4 * bufferElements);
-	CHECK(err == 0) << "Couldn't write white buffer to memory";
+	CHECK(err > 0) << "Couldn't write white buffer to memory";
 
 	// Upload a zeroed buffer to memory
 	for(int i = 0; i < bufferElements; i++) {
@@ -675,7 +677,7 @@ void MAX10OutputPlugin::doOutputTest(void) {
 	}
 
 	err = this->writePeriphMem(0x4000, buffer, 4 * bufferElements);
-	CHECK(err == 0) << "Couldn't write zeroed buffer to memory";
+	CHECK(err > 0) << "Couldn't write zeroed buffer to memory";
 
 
 
@@ -710,6 +712,8 @@ void MAX10OutputPlugin::doOutputTest(void) {
 		CHECK(err == 0) << "Couldn't reset channel " << i;
 	}
 
+	// log
+	LOG(INFO) << "Finished output POST";
 
 
 	// Clean up

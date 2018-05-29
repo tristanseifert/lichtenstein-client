@@ -253,6 +253,8 @@ int MAX10OutputPlugin::sendSpiCommand(uint8_t command, void *header, size_t head
 /**
  * Reads the status register to determine which channels are actively sending
  * data.
+ *
+ * @return 0 if successful, a negative error code otherwise.
  */
 int MAX10OutputPlugin::readStatusReg(std::bitset<16> &status) {
 	int err;
@@ -262,7 +264,7 @@ int MAX10OutputPlugin::readStatusReg(std::bitset<16> &status) {
 
 	err = this->sendSpiCommand(kCommandReadStatus, &read, nullptr, 2);
 
-	if(err == 0) {
+	if(err > 0) {
 		// clear status
 		status.reset();
 
@@ -270,8 +272,8 @@ int MAX10OutputPlugin::readStatusReg(std::bitset<16> &status) {
 		status = std::bitset<16>(read);
 	}
 
-	// return the error code
-	return err;
+	// return the error code, or 0 if successful
+	return (err < 0) ? err : 0;
 }
 
 /**
@@ -297,9 +299,11 @@ int MAX10OutputPlugin::writePeriphMem(uint32_t addr, void *data, size_t length) 
 	// perform the SPI command
 	err = this->sendSpiCommand(kCommandWriteMem, &header, headerSz, nullptr, data, length);
 
-	LOG_IF(ERROR, err != 0) << "Couldn't write to memory 0x" << std::hex << addr
-		<< ", length 0x" << ": " << err;
-	return err;
+	LOG_IF(ERROR, err <= 0) << "Couldn't write to memory 0x" << std::hex << addr
+		<< ", length 0x" << length << std::dec << ": " << err;
+
+	// return error codes as is, subtract length of header and command otherwise
+	return (err < 0) ? err : (err - 4);;
 }
 
 /**
@@ -338,10 +342,12 @@ int MAX10OutputPlugin::writePeriphReg(unsigned int channel, uint32_t addr, uint1
 
 
 	// perform the SPI command
-	err =  this->sendSpiCommand(kCommandWriteMem, &header, headerSz, nullptr, &data, dataSz);
+	err =  this->sendSpiCommand(kCommandWriteReg, &header, headerSz, nullptr, &data, dataSz);
 
-	LOG_IF(ERROR, err != 0) << "Couldn't write addr 0x" << std::hex << addr
+	LOG_IF(ERROR, err <= 0) << "Couldn't write addr 0x" << std::hex << addr
 		<< ", length 0x" << length << " for channel " << std::dec << channel
 		<< ": " << err;
-	return err;
+
+	// return error code or 0 if successful	
+	return (err < 0) ? err : 0;
 }
