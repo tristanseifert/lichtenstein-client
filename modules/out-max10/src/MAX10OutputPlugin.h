@@ -67,6 +67,8 @@ class MAX10OutputPlugin : public OutputPlugin {
 		int writePeriphMem(uint32_t, void *, size_t);
 		int writePeriphReg(unsigned int, uint32_t, uint16_t);
 
+		void doOutputTest(void);
+
 	private:
 		// commands written to SPI device
 		enum {
@@ -82,6 +84,9 @@ class MAX10OutputPlugin : public OutputPlugin {
 			kWorkerCheckQueue,
 			kWorkerOutputAllChannels,
 		};
+
+		// how many µS to wait between channels during POST
+		static const unsigned int kPOSTChannelWait = (200 * 1000);
 
 	private:
 		PluginHandler *handler = nullptr;

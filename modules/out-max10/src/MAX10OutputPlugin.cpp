@@ -180,6 +180,10 @@ void MAX10OutputPlugin::workerEntry(void) {
 	fd_set readfds;
 
 	// set up hardware
+	this->reset();
+
+	// perform power-on test
+	this->doOutputTest();
 
 	// main loop
 	while(this->run) {
@@ -613,4 +617,101 @@ const unsigned int MAX10OutputPlugin::maxChannels(void) {
  */
 int MAX10OutputPlugin::setEnabledChannels(unsigned int channels) {
 	return 0;
+}
+
+
+
+/**
+ * Power-on test: this will cycle through all 16 output channels, testing each
+ * of the channels by illuminating the red, green, blue, and white LEDs.
+ *
+ * This handles each channel one after another so that we don't overload the
+ * power supply.
+ *
+ * TODO: handle non-RGBW (aka just plain RGB) LED strips also.
+ */
+void MAX10OutputPlugin::doOutputTest(void) {
+	int err = 0;
+
+	// allocate a buffer
+	const size_t bufferElements = 300;
+	uint32_t *buffer = new uint32_t[bufferElements];
+
+	// Upload a red buffer to memory
+	for(int i = 0; i < bufferElements; i++) {
+		buffer[i] = 0xFF000000;
+	}
+
+	err = this->writePeriphMem(0x0000, buffer, 4 * bufferElements);
+	CHECK(err == 0) << "Couldn't write red buffer to memory";
+
+	// Upload a green buffer to memory
+	for(int i = 0; i < bufferElements; i++) {
+		buffer[i] = 0x00FF0000;
+	}
+
+	err = this->writePeriphMem(0x1000, buffer, 4 * bufferElements);
+	CHECK(err == 0) << "Couldn't write green buffer to memory";
+
+	// Upload a blue buffer to memory
+	for(int i = 0; i < bufferElements; i++) {
+		buffer[i] = 0x0000FF00;
+	}
+
+	err = this->writePeriphMem(0x2000, buffer, 4 * bufferElements);
+	CHECK(err == 0) << "Couldn't write green buffer to memory";
+
+	// Upload a white buffer to memory
+	for(int i = 0; i < bufferElements; i++) {
+		buffer[i] = 0x000000FF;
+	}
+
+	err = this->writePeriphMem(0x3000, buffer, 4 * bufferElements);
+	CHECK(err == 0) << "Couldn't write white buffer to memory";
+
+	// Upload a zeroed buffer to memory
+	for(int i = 0; i < bufferElements; i++) {
+		buffer[i] = 0x00000000;
+	}
+
+	err = this->writePeriphMem(0x4000, buffer, 4 * bufferElements);
+	CHECK(err == 0) << "Couldn't write zeroed buffer to memory";
+
+
+
+	// Now, iterate through each channel
+	for(int i = 0; i < 16; i++) {
+		// output red
+		err = this->writePeriphReg(i, 0x0000, (4 * bufferElements));
+		CHECK(err == 0) << "Couldn't output red buffer for channel " << i;
+
+		usleep(MAX10OutputPlugin::kPOSTChannelWait);
+
+		// output green
+		err = this->writePeriphReg(i, 0x1000, (4 * bufferElements));
+		CHECK(err == 0) << "Couldn't output green buffer for channel " << i;
+
+		usleep(MAX10OutputPlugin::kPOSTChannelWait);
+
+		// output blue
+		err = this->writePeriphReg(i, 0x2000, (4 * bufferElements));
+		CHECK(err == 0) << "Couldn't output blue buffer for channel " << i;
+
+		usleep(MAX10OutputPlugin::kPOSTChannelWait);
+
+		// output white
+		err = this->writePeriphReg(i, 0x3000, (4 * bufferElements));
+		CHECK(err == 0) << "Couldn't output white buffer for channel " << i;
+
+		usleep(MAX10OutputPlugin::kPOSTChannelWait);
+
+		// reset the channel
+		err = this->writePeriphReg(i, 0x4000, (4 * bufferElements));
+		CHECK(err == 0) << "Couldn't reset channel " << i;
+	}
+
+
+
+	// Clean up
+	delete[] buffer;
 }
