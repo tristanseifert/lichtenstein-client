@@ -207,46 +207,33 @@ int MAX10OutputPlugin::sendSpiCommand(uint8_t command, void *header, size_t head
 	memset(&txn, 0, sizeof(txn));
 
 	// set up the command to write the command
-	txn[i++] = {
-		.tx_buf = (unsigned long) nullptr,
-		.rx_buf = (unsigned long) &cmdBuf,
+	txn[i].tx_buf = (unsigned long) &cmdBuf;
+	txn[i].rx_buf = (unsigned long) nullptr;
+	txn[i].len = 1;
+	txn[i].cs_change = false;
 
-		.len = 1,
-
-		// .speed_hz = this->spiBaud,
-		// .delay_usecs = 0,
-		// .bits_per_word = 8,
-		.cs_change = false,
-	};
+	i++;
 
 	// is there a header?
 	if(header && headerLen > 0) {
-		txn[i++] = {
-			.tx_buf = (unsigned long) header,
-			.rx_buf = (unsigned long) nullptr,
+		txn[i].tx_buf = (unsigned long) header;
+		txn[i].rx_buf = (unsigned long) nullptr;
+		txn[i].len = static_cast<uint32_t>(headerLen);
+		txn[i].cs_change = false;
 
-			.len = static_cast<uint32_t>(headerLen),
-
-			// .speed_hz = this->spiBaud,
-			// .delay_usecs = 0,
-			// .bits_per_word = 8,
-			.cs_change = false,
-		};
+		i++;
 	}
 
 	// is there data to read/write?
 	if((read || write) && length > 0) {
-		txn[i++] = {
-			.tx_buf = (unsigned long) read,
-			.rx_buf = (unsigned long) write,
+		txn[i].rx_buf = (unsigned long) read;
+		txn[i].tx_buf = (unsigned long) write;
 
-			.len = static_cast<uint32_t>(length),
+		txn[i].len = static_cast<uint32_t>(length);
 
-			// .speed_hz = this->spiBaud,
-			// .delay_usecs = 0,
-			// .bits_per_word = 8,
-			.cs_change = false,
-		};
+		txn[i].cs_change = false;
+	
+		i++;
 	}
 
 	// ensure we de-select the device after the last transfer
