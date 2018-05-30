@@ -1,6 +1,7 @@
 /**
  * Main entrypoint for Lichtenstein client
  */
+#include "status/StatusHandler.h"
 #include "plugin/LichtensteinPluginHandler.h"
 #include "net/ProtocolHandler.h"
 #include "input/InputHandler.h"
@@ -91,6 +92,9 @@ int main(int argc, const char *argv[]) {
 
 	sigaction(SIGINT, &sigIntHandler, nullptr);
 
+	// set up the status handler
+	StatusHandler::initSingleton(configReader);
+
 	// set up the various components
 	plugin = new LichtensteinPluginHandler(configReader);
 	proto = new ProtocolHandler(configReader);
@@ -130,6 +134,9 @@ int main(int argc, const char *argv[]) {
 
 	// lastly, clean up plugins
 	delete plugin;
+
+	// clean up status handler
+	StatusHandler::deallocSingleton();
 }
 
 /**

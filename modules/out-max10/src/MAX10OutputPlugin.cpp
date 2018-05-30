@@ -683,6 +683,12 @@ void MAX10OutputPlugin::doOutputTest(void) {
 
 	// Now, iterate through each channel
 	for(int i = 0; i < 16; i++) {
+		// exit if run is false
+		if(this->run == false) {
+			LOG(WARNING) << "Aborting output POST!";
+			return;
+		}
+
 		// output red
 		err = this->writePeriphReg(i, 0x0000, (4 * bufferElements));
 		CHECK(err == 0) << "Couldn't output red buffer for channel " << i;

@@ -5,6 +5,8 @@
 
 #include "../output/OutputFrame.h"
 
+#include "../status/StatusHandler.h"
+
 #include <glog/logging.h>
 #include <INIReader.h>
 #include <cpptime.h>
@@ -375,6 +377,9 @@ void ProtocolHandler::handlePacket(void *packet, size_t length, struct msghdr *m
 		case kOpcodeNodeAdoption:
 			if(this->isAdopted == false) {
 				// TODO: handle adoption
+
+				// set status
+				StatusHandler::sharedInstance()->setAdoptionState(true);
 			} else {
 				LOG(WARNING) << "Attempted adoption by " << srcAddr << "!";
 			}

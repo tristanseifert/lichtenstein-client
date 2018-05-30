@@ -79,10 +79,12 @@ void MAX10OutputPlugin::configureHardware(void) {
 	CHECK(this->i2cEeepromAddr >= 0) << "Invalid EEPROM address " << this->i2cEeepromAddr;
 
 	// open SPI device
+#ifdef __linux__
 	const char *file = this->spiDeviceFile.c_str();
 
 	this->spiDevice = open(file, O_RDWR);
 	PLOG_IF(FATAL, this->spiDevice == -1) << "Couldn't open SPI device at " << file;
+#endif
 
 
 #ifdef __linux__
@@ -232,7 +234,7 @@ int MAX10OutputPlugin::sendSpiCommand(uint8_t command, void *header, size_t head
 		txn[i].len = static_cast<uint32_t>(length);
 
 		txn[i].cs_change = false;
-	
+
 		i++;
 	}
 
@@ -348,6 +350,6 @@ int MAX10OutputPlugin::writePeriphReg(unsigned int channel, uint32_t addr, uint1
 		<< ", length 0x" << length << " for channel " << std::dec << channel
 		<< ": " << err;
 
-	// return error code or 0 if successful	
+	// return error code or 0 if successful
 	return (err < 0) ? err : 0;
 }

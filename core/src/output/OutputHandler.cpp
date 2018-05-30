@@ -3,6 +3,8 @@
 #include "OutputFrame.h"
 #include "../plugin/LichtensteinPluginHandler.h"
 
+#include "../status/StatusHandler.h"
+
 #include <glog/logging.h>
 #include <INIReader.h>
 
@@ -52,5 +54,10 @@ int OutputHandler::queueOutputFrame(OutputFrame *frame) {
  * Actually outputs the given channels.
  */
 int OutputHandler::outputChannels(std::bitset<32> &channels) {
+	// set the output state
+	// TODO: disable it later
+	StatusHandler::sharedInstance()->setOutputState(true);
+
+	// actually output them
 	return this->plugin->outputChannels(channels);
 }
