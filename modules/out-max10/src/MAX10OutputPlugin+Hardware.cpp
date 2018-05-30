@@ -196,7 +196,7 @@ int MAX10OutputPlugin::doSpiTransaction(void *read, void *write, size_t length) 
   * reads/writes the given number of bytes
   */
 int MAX10OutputPlugin::sendSpiCommand(uint8_t command, void *header, size_t headerLen, void *read, void *write, size_t length) {
-	int err;
+	int err = -1;
 
 	// buffer for command
 	uint8_t cmdBuf = command;
@@ -244,6 +244,9 @@ int MAX10OutputPlugin::sendSpiCommand(uint8_t command, void *header, size_t head
 	// perform transfer
 	err = ioctl(this->spiDevice, SPI_IOC_MESSAGE(i), &txn);
 	PLOG_IF(ERROR, err < 0) << "Couldn't do SPI transfers";
+#else
+	// on development platforms (that aren't linux) just pretend success happened
+	err = 1 + headerLen + length;
 #endif
 
 	// done!

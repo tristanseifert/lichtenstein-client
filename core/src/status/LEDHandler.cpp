@@ -9,6 +9,8 @@
 
 #include <cstdio>
 
+#include <sys/stat.h>
+
 #define kHeartbeatRate	std::chrono::milliseconds(500)
 
 /**
@@ -74,28 +76,28 @@ void LEDHandler::configureLeds(void) {
 	this->errorLedPath = this->config->Get("statusled", "errorled", "none");
 
 	if(this->errorLedPath != "none") {
-		this->errorLedConfigured = true;
+		this->errorLedConfigured = this->checkIfFileExists(this->errorLedPath);
 	}
 
 	// configure output active LED
 	this->outputActiveLedPath = this->config->Get("statusled", "outputled", "none");
 
 	if(this->outputActiveLedPath != "none") {
-		this->outputActiveLedConfigured = true;
+		this->outputActiveLedConfigured = this->checkIfFileExists(this->outputActiveLedPath);
 	}
 
 	// configure error LED
 	this->adoptedLedPath = this->config->Get("statusled", "adoptionled", "none");
 
 	if(this->adoptedLedPath != "none") {
-		this->adoptedLedConfigured = true;
+		this->adoptedLedConfigured = this->checkIfFileExists(this->adoptedLedPath);
 	}
 
 	// configure error LED
 	this->heartbeatLedPath = this->config->Get("statusled", "heartbeatled", "none");
 
 	if(this->heartbeatLedPath != "none") {
-		this->heartbeatLedConfigured = true;
+		this->heartbeatLedConfigured = this->checkIfFileExists(this->heartbeatLedPath);
 	}
 }
 
@@ -129,4 +131,20 @@ int LEDHandler::setLedState(std::string &path, bool state) {
 
 	// done!
 	return err;
+}
+
+
+
+/**
+ * Checks whether the given file exists.
+ */
+bool LEDHandler::checkIfFileExists(std::string &path) {
+	int err;
+  struct stat buffer;
+
+	// get info about the file
+  err = stat(path.c_str(), &buffer);
+
+	// file exists if status is 0
+	return (err == 0);
 }

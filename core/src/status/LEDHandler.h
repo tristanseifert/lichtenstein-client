@@ -38,6 +38,8 @@ class LEDHandler {
 		}
 
 	private:
+		bool checkIfFileExists(std::string &);
+
 		void configureLeds(void);
 
 		int setLedState(std::string &, bool);
