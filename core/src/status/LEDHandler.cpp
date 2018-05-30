@@ -53,6 +53,15 @@ LEDHandler::~LEDHandler() {
 	// reset all LEDs except the error indicator
 	this->setOutputState(false);
 	this->setAdoptionState(false);
+
+	// clean up heartbeat timer
+	if(this->heartbeatLedConfigured && this->heartbeatTimer) {
+		// delete the heartbeat timer
+		delete this->heartbeatTimer;
+
+		// extinguish the heartbeat LED
+		this->setLedState(this->heartbeatLedPath, false);
+	}
 }
 
 
