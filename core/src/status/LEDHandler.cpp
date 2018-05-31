@@ -76,28 +76,32 @@ void LEDHandler::configureLeds(void) {
 	this->errorLedPath = this->config->Get("statusled", "errorled", "none");
 
 	if(this->errorLedPath != "none") {
-		this->errorLedConfigured = this->checkIfFileExists(this->errorLedPath);
+		bool exists = this->checkIfFileExists(this->errorLedPath);
+		this->errorLedConfigured = exists;
 	}
 
 	// configure output active LED
 	this->outputActiveLedPath = this->config->Get("statusled", "outputled", "none");
 
 	if(this->outputActiveLedPath != "none") {
-		this->outputActiveLedConfigured = this->checkIfFileExists(this->outputActiveLedPath);
+		bool exists = this->checkIfFileExists(this->outputActiveLedPath);
+		this->outputActiveLedConfigured = exists;
 	}
 
 	// configure error LED
 	this->adoptedLedPath = this->config->Get("statusled", "adoptionled", "none");
 
 	if(this->adoptedLedPath != "none") {
-		this->adoptedLedConfigured = this->checkIfFileExists(this->adoptedLedPath);
+		bool exists = this->checkIfFileExists(this->adoptedLedPath);
+		this->adoptedLedConfigured = exists;
 	}
 
 	// configure error LED
 	this->heartbeatLedPath = this->config->Get("statusled", "heartbeatled", "none");
 
 	if(this->heartbeatLedPath != "none") {
-		this->heartbeatLedConfigured = this->checkIfFileExists(this->heartbeatLedPath);
+		bool exists = this->checkIfFileExists(this->heartbeatLedPath);
+		this->heartbeatLedConfigured = exists;
 	}
 }
 
