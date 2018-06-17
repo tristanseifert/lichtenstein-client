@@ -88,8 +88,8 @@ void MAX10OutputPlugin::configureHardware(void) {
 
 
 #ifdef __linux__
-	// configure SPI mode (CPHA)
-	const uint8_t mode = SPI_CPHA;
+	// configure SPI mode (mode 0)
+	const uint8_t mode = SPI_MODE_0;
 
 	err = ioctl(this->spiDevice, SPI_IOC_WR_MODE, &mode);
 	PLOG_IF(FATAL, err == -1) << "Couldn't set write mode";
