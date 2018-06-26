@@ -197,7 +197,7 @@ void GPIOInputPlugin::getAllGPIOs(std::vector<int> &out) {
 		LOG(WARNING) << "No inputs were configured, check input_gpio.gpios";
 	}
 
-	// first, parse the test inputs, if they exist
+	// then, parse the test inputs, if they exist
 	std::string testInputList = config->Get("input_gpio", "test_gpios", "");
 
 	if(testInputList != "") {

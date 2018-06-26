@@ -3,7 +3,7 @@ INSTALL = /usr/bin/install
 INSTALL_PROGRAM = $(INSTALL)
 INSTALL_DATA = $(INSTALL) -m 644
 
-DIRS = core modules/out-max10 modules/in-gpio
+DIRS = core modules/out-max10 modules/out-ledchain modules/in-gpio
 # the sets of directories to do various things in
 BUILDDIRS = $(DIRS:%=build-%)
 INSTALLDIRS = $(DIRS:%=install-%)
