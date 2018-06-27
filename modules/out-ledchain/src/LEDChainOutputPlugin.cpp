@@ -11,6 +11,7 @@
 #include <vector>
 #include <sstream>
 
+#include <stdarg.h>
 #include <stdio.h>
 #include <unistd.h>
 #include <fcntl.h>
@@ -23,6 +24,8 @@
 #ifdef __linux__
 	#include <linux/types.h>
 	#include <linux/spi/spidev.h>
+
+	#include <libkmod/libkmod.h>
 #endif
 
 static int parseCsvList(std::string &in, std::vector<std::string> &out);
@@ -34,6 +37,13 @@ static int parseCsvList(std::string &in, std::vector<std::string> &out);
  */
 void LEDChainThreadEntry(void *ctx) {
 	(static_cast<LEDChainOutputPlugin *>(ctx))->workerEntry();
+}
+
+/**
+ * libkmod logging function
+ */
+void kmod_log(void *log_data, int priority, const char *file, int line, const char *fn, const char *format, va_list args) {
+
 }
 
 
@@ -319,14 +329,45 @@ void LEDChainOutputPlugin::readConfig(void) {
  * Loads the ledchain kernel module.
  */
 void LEDChainOutputPlugin::loadModule(void) {
+	std::stringstream paramStream;
 
+	// build the parameter string
+	for(int i = 0; i < LEDChainOutputPlugin::numChannels; i++) {
+		// is this channel active?
+		if(this->numLeds[i] > 0) {
+			// channel marker
+			paramStream << "ledchain" << i << "=";
+
+			// inverted (always zero), count, type
+			paramStream << "0," << this->numLeds[i] << "," << this->ledType[i];
+
+			// add a space for the next channel
+			paramStream << " ";
+		}
+	}
+
+	// get the param C string and load the module
+	const char *param = paramStream.str().c_str();
+
+	LOG(INFO) << "Loading ledchain with params: " << paramStream.str();
+
+#ifdef __linux__
+	// initialize libkmod
+	this->kmodCtx = kmod_new(nullptr, nullptr);
+	CHECK(this->kmodCtx != nullptr) << "Couldn't initialize libkmod";
+
+	// kmod_set_log_fn(this->kmodCtx, kmod_log, nullptr);
+#endif
 }
 
 /**
  * Unloads the ledchain kernel module.
  */
 void LEDChainOutputPlugin::unloadModule(void) {
-
+#ifdef __linux__
+	// Lastly, clean up libkmod context
+	kmod_unref(this->kmodCtx);
+#endif
 }
 
 /**

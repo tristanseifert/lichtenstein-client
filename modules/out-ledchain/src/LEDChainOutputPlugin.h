@@ -14,6 +14,10 @@
 #include <queue>
 #include <bitset>
 
+#ifdef __linux__
+#include <libkmod/libkmod.h>
+#endif
+
 class OutputFrame;
 
 class LEDChainOutputPlugin : public OutputPlugin {
@@ -64,6 +68,12 @@ class LEDChainOutputPlugin : public OutputPlugin {
 
 		// maximum number of LEDs per channel
 		static const int maxLedsPerChannel = 300;
+
+	private:
+#ifdef __linux__
+		// libkmod context
+		struct kmod_ctx *kmodCtx;
+#endif
 
 	private:
 		PluginHandler *handler = nullptr;

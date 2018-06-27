@@ -16,6 +16,13 @@ LIBS_DIRS +=
 
 LIBS_FLAGS := $(addprefix -L,$(LIBS_DIRS)) $(addprefix -l,$(LIBS))
 
+# link against libkmod on linux
+UNAME_S := $(shell uname -s)
+
+ifeq ($(UNAME_S),Linux)
+	LIBS += kmod
+endif
+
 # directories to search for includes
 INC_DIRS += $(shell find $(SRC_DIRS) -type d) ../../include ../../libs/inih
 
