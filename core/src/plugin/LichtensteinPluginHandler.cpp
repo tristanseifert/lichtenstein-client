@@ -145,7 +145,7 @@ int LichtensteinPluginHandler::loadPlugin(std::string &path) {
 
 	// attempt to dlopen it
 	lib = dlopen(cPath, RTLD_LAZY);
-	CHECK(lib != nullptr) << "Couldn't open library, what the fuck";
+	CHECK(lib != nullptr) << "Couldn't open library " << path << ", what the fuck: " << dlerror();
 
 	// validate compatibility
 	err = this->isPluginCompatible(lib);

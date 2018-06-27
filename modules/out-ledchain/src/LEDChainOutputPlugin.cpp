@@ -25,7 +25,7 @@
 	#include <linux/types.h>
 	#include <linux/spi/spidev.h>
 
-	#include <libkmod/libkmod.h>
+	#include <libkmod.h>
 #endif
 
 static int parseCsvList(std::string &in, std::vector<std::string> &out);
@@ -329,9 +329,25 @@ void LEDChainOutputPlugin::readConfig(void) {
  * Loads the ledchain kernel module.
  */
 void LEDChainOutputPlugin::loadModule(void) {
-	std::stringstream paramStream;
+	int err;
+
+	// get path to module
+	INIReader *config = this->handler->getConfig();
+
+	std::string path = config->Get("output_ledchain", "module_path", "");
+
+	size_t kmodPathLen = strlen(path.c_str()) + 8;
+
+	char *kmodPath = static_cast<char *>(malloc(kmodPathLen));
+	memset(kmodPath, 0, kmodPathLen);
+
+	strncpy(kmodPath, path.c_str(), kmodPathLen);
+
+	LOG(INFO) << "Loading ledchain kernel module from " << kmodPath;
 
 	// build the parameter string
+	std::stringstream paramStream;
+
 	for(int i = 0; i < LEDChainOutputPlugin::numChannels; i++) {
 		// is this channel active?
 		if(this->numLeds[i] > 0) {
@@ -347,9 +363,12 @@ void LEDChainOutputPlugin::loadModule(void) {
 	}
 
 	// get the param C string and load the module
-	const char *param = paramStream.str().c_str();
+	size_t paramsLen = strlen(paramStream.str().c_str()) + 8;
 
-	LOG(INFO) << "Loading ledchain with params: " << paramStream.str();
+	char *params = static_cast<char *>(malloc(paramsLen));
+	memset(params, 0, paramsLen);
+
+	strncpy(params, paramStream.str().c_str(), paramsLen);
 
 #ifdef __linux__
 	// initialize libkmod
@@ -357,14 +376,36 @@ void LEDChainOutputPlugin::loadModule(void) {
 	CHECK(this->kmodCtx != nullptr) << "Couldn't initialize libkmod";
 
 	// kmod_set_log_fn(this->kmodCtx, kmod_log, nullptr);
+
+	// get a reference to the module
+	err = kmod_module_new_from_path(this->kmodCtx, kmodPath, &this->kmod);
+	CHECK(err == 0) << "Couldn't get reference to ledchain module: " << err;
+
+	// now, attempt to load it
+	LOG(INFO) << "Loading ledchain with params: " << params;
+
+	err = kmod_module_insert_module(this->kmod, 0, params);
+	CHECK(err == 0) << "Couldn't insert module: " << err;
+
+	// if we get here, the module is loaded :D
 #endif
+
+	// clean up
+	free(kmodPath);
+	free(params);
 }
 
 /**
  * Unloads the ledchain kernel module.
  */
 void LEDChainOutputPlugin::unloadModule(void) {
+	int err;
+
 #ifdef __linux__
+	// attempt to remove it
+	err = kmod_module_remove_module(this->kmod, KMOD_REMOVE_FORCE);
+	CHECK(err == 0) << "Couldn't remove module: " << err;
+
 	// Lastly, clean up libkmod context
 	kmod_unref(this->kmodCtx);
 #endif

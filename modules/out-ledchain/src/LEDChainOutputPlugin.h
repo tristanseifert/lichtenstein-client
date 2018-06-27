@@ -15,7 +15,7 @@
 #include <bitset>
 
 #ifdef __linux__
-#include <libkmod/libkmod.h>
+	#include <libkmod.h>
 #endif
 
 class OutputFrame;
@@ -73,6 +73,9 @@ class LEDChainOutputPlugin : public OutputPlugin {
 #ifdef __linux__
 		// libkmod context
 		struct kmod_ctx *kmodCtx;
+
+		// reference to the ledchain module
+		struct kmod_module *kmod;
 #endif
 
 	private:
