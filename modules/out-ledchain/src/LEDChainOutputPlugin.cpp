@@ -28,6 +28,12 @@
 	#include <libkmod.h>
 #endif
 
+// static initializers
+const std::string LEDChainOutputPlugin::deviceFiles[] = {
+	"/dev/ledchain0",
+	"/dev/ledchain1"
+};
+
 static int parseCsvList(std::string &in, std::vector<std::string> &out);
 
 

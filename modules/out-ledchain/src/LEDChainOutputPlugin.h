@@ -65,9 +65,11 @@ class LEDChainOutputPlugin : public OutputPlugin {
 	private:
 		// PWM channels supported, starting with 0
 		static const int numChannels = 2;
-
 		// maximum number of LEDs per channel
 		static const int maxLedsPerChannel = 300;
+
+		// filename for each channel's ledchain device
+		static const std::string deviceFiles[LEDChainOutputPlugin::numChannels];
 
 	private:
 #ifdef __linux__
