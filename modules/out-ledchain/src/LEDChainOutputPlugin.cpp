@@ -29,7 +29,7 @@
 #endif
 
 // static initializers
-const std::string LEDChainOutputPlugin::deviceFiles[] = {
+const char *LEDChainOutputPlugin::deviceFiles[] = {
 	"/dev/ledchain0",
 	"/dev/ledchain1"
 };
@@ -164,6 +164,9 @@ void LEDChainOutputPlugin::workerEntry(void) {
 	int err = 0, rsz;
 	fd_set readfds;
 
+	// open file descriptors
+	this->openDevice();
+
 	// set up hardware
 	this->reset();
 
@@ -261,6 +264,9 @@ void LEDChainOutputPlugin::workerEntry(void) {
 
 	// clean up
 	this->reset();
+
+	// close files
+	this->closeDevice();
 }
 
 
@@ -416,6 +422,47 @@ void LEDChainOutputPlugin::unloadModule(void) {
 	kmod_unref(this->kmodCtx);
 #endif
 }
+
+
+
+/**
+ * Opens the ledchain devices.
+ */
+void LEDChainOutputPlugin::openDevice(void) {
+	// clear the array
+	memset(this->ledchainFd, 0, sizeof(this->ledchainFd));
+
+	// attempt to open each device
+	for(int i = 0; i < LEDChainOutputPlugin::numChannels; i++) {
+		// shall we open this device?
+		if(this->numLeds[i] > 0) {
+			const char *path = LEDChainOutputPlugin::deviceFiles[i];
+
+			// open the file read/write
+			this->ledchainFd[i] = open(path, O_RDWR);
+			PLOG_IF(FATAL, this->ledchainFd[i] == -1) << "Couldn't open device at " << path;
+		}
+	}
+}
+
+/**
+ * Closes any opened ledchain devices.
+ */
+void LEDChainOutputPlugin::closeDevice(void) {
+	int err;
+
+	// attempt to close each device in sequence
+	for(int i = 0; i < LEDChainOutputPlugin::numChannels; i++) {
+		// is there a file descriptor for the device?
+		if(this->ledchainFd[i] != 0) {
+			// if so, try to close it
+			err = close(this->ledchainFd[i]);
+			PLOG_IF(FATAL, err == -1) << "Couldn't close device for channel " << i;
+		}
+	}
+}
+
+
 
 /**
  * Resets the output hardware.

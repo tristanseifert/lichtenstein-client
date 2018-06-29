@@ -49,6 +49,9 @@ class LEDChainOutputPlugin : public OutputPlugin {
 		void loadModule(void);
 		void unloadModule(void);
 
+		void openDevice(void);
+		void closeDevice(void);
+
 		void reset(void);
 
 		void doOutputTest(void);
@@ -69,7 +72,7 @@ class LEDChainOutputPlugin : public OutputPlugin {
 		static const int maxLedsPerChannel = 300;
 
 		// filename for each channel's ledchain device
-		static const std::string deviceFiles[LEDChainOutputPlugin::numChannels];
+		static const char *deviceFiles[LEDChainOutputPlugin::numChannels];
 
 	private:
 #ifdef __linux__
@@ -104,6 +107,9 @@ class LEDChainOutputPlugin : public OutputPlugin {
 		// configuration for output channels
 		int numLeds[LEDChainOutputPlugin::numChannels];
 		int ledType[LEDChainOutputPlugin::numChannels];
+
+		// file descriptors for ledchain devices
+		int ledchainFd[LEDChainOutputPlugin::numChannels];
 };
 
 #endif
