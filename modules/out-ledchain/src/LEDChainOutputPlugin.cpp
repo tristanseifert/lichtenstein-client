@@ -239,6 +239,7 @@ void LEDChainOutputPlugin::workerEntry(void) {
 
 							// process the frame
 							if(frame != nullptr) {
+								this->outputFrame(frame);
 								// TODO: implement
 							}
 						}
@@ -471,7 +472,103 @@ void LEDChainOutputPlugin::closeDevice(void) {
  * makes sure that the level shifters aren't driving the outputs.
  */
 void LEDChainOutputPlugin::reset(void) {
+	// TODO: implement
+}
 
+
+
+/**
+ * Outputs the given frame.
+ */
+void LEDChainOutputPlugin::outputFrame(OutputFrame *frame) {
+	int err;
+
+	// Enable output for the channel
+	int channel = frame->getChannel();
+	this->setOutputEnable(channel, true);
+
+	// write it to the appropriate file descriptor
+	int fd = this->ledchainFd[channel];
+
+	err = write(fd, frame->getData(), frame->getDataLen());
+
+	// handle errors
+	if(err == -1) {
+		// nack the packet
+		this->handler->acknowledgeFrame(frame);
+
+		// log error
+		PLOG(ERROR) << "Couldn't write " << frame->getDataLen() << " bytes for "
+			<< "channel " << channel;
+
+		goto cleanup;
+	}
+
+	// push the frames into the ack queue
+	try {
+		std::lock_guard<std::mutex> lck(this->framesToAckMutex);
+		this->framesToAck[channel].push(frame);
+	} catch (std::logic_error &ex) {
+		LOG(FATAL) << "Couldn't get lock: " << ex.what();
+	}
+
+	// TODO: use ioctl to determine when channel is completed
+	this->handler->acknowledgeFrame(frame);
+
+	// perform any clean-up
+cleanup: ;
+}
+
+/**
+ * Acknowledges any frames that were sent to the specified channel.
+ */
+void LEDChainOutputPlugin::ackFramesForChannel(int channel) {
+	// ensure the queue isn't empty
+	if(this->framesToAck[channel].empty()) {
+		return;
+	}
+
+	// the channel is no longer outputting data, disable output
+	this->setOutputEnable(channel, false);
+
+	// loop while there is stuff in the queue
+	bool haveMore = true;
+
+	while(haveMore) {
+		OutputFrame *frame = nullptr;
+
+		// pop the frame
+		try {
+			// get a lock on the frame queue
+			std::lock_guard<std::mutex> lck(this->framesToAckMutex);
+
+			// get the leading element
+			frame = this->framesToAck[channel].front();
+			this->framesToAck[channel].pop();
+
+			// are there more?
+			haveMore = !this->framesToAck[channel].empty();
+		} catch (std::logic_error &ex) {
+			LOG(FATAL) << "Couldn't get lock: " << ex.what();
+
+			// force exit the loop
+			haveMore = false;
+		}
+
+		// acknowledge the frame
+		CHECK(frame != nullptr) << "Got null frame!";
+		this->handler->acknowledgeFrame(frame);
+	}
+}
+
+/**
+ * Sets the status of the (active low) output enable signals for each channel.
+ *
+ * @param channel Channel number
+ * @param active When true, enables output for that channel.
+ */
+void LEDChainOutputPlugin::setOutputEnable(int channel, bool active) {
+	// TODO: implement
 }
 
 

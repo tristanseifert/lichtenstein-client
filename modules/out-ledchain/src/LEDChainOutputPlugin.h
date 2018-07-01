@@ -54,6 +54,10 @@ class LEDChainOutputPlugin : public OutputPlugin {
 
 		void reset(void);
 
+		void outputFrame(OutputFrame *);
+		void ackFramesForChannel(int);
+		void setOutputEnable(int, bool);
+
 		void doOutputTest(void);
 
 	private:
@@ -98,6 +102,11 @@ class LEDChainOutputPlugin : public OutputPlugin {
 		std::queue<OutputFrame *> outFrames;
 		// lock protecting the queue
 		std::mutex outFramesMutex;
+
+		// frames to be acknowledged for each channel
+		std::queue<OutputFrame *> framesToAck[LEDChainOutputPlugin::numChannels];
+		// lock protecting the queue
+		std::mutex framesToAckMutex;
 
 
 		// channels to output
