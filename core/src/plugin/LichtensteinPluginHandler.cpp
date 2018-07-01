@@ -3,6 +3,8 @@
 #include "../output/OutputFrame.h"
 #include "../net/ProtocolHandler.h"
 
+#include "GPIOHelper.h"
+
 #include <glog/logging.h>
 
 #include <stdexcept>
@@ -17,6 +19,9 @@
  * Sets up the plugin handler and loads the plugins.
  */
 LichtensteinPluginHandler::LichtensteinPluginHandler(INIReader *_cfg) : config(_cfg) {
+	// create GPIO helper
+	this->gpioHelper = new GPIOHelper();
+
 	// load plugins
 	this->loadInputPlugins();
 	this->loadOutputPlugins();

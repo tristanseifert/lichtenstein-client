@@ -20,7 +20,7 @@
 #ifdef __linux__
 	#include <linux/types.h>
 	#include <linux/spi/spidev.h>
-#endif
+#endif 
 
 // size of each "block" in the framebuffer allocation map
 static const size_t kFBMapBlockSize = 16;

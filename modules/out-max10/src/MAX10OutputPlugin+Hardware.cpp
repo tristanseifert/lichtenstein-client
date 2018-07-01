@@ -4,8 +4,6 @@
  */
 #include "MAX10OutputPlugin.h"
 
-#include "GPIOHelper.h"
-
 #include <glog/logging.h>
 
 #include <bitset>
@@ -46,25 +44,26 @@ void MAX10OutputPlugin::configureHardware(void) {
 	int err;
 
 	INIReader *config = this->handler->getConfig();
+	GPIOHelper *gpio = this->handler->getGPIOHelper();
 
 	// Get GPIO for reset pin and set it up
 	this->resetGPIO = config->GetInteger("output_max10", "gpio_reset", -1);
 	CHECK(this->resetGPIO > 0) << "Invalid reset GPIO value: " << this->resetGPIO;
 
-	err = GPIOHelper::exportGPIO(this->resetGPIO);
+	err = gpio->exportGPIO(this->resetGPIO);
 	CHECK(err == 0) << "Couldn't export reset GPIO: " << err;
 
-	err = GPIOHelper::configureGPIO(this->resetGPIO, "direction", "high");
+	err = gpio->configureGPIO(this->resetGPIO, "direction", "high");
 	CHECK(err == 0) << "Couldn't configure reset GPIO: " << err;
 
 	// Get GPIO for enable pin
 	this->enableGPIO = config->GetInteger("output_max10", "gpio_enable", -1);
 	CHECK(this->enableGPIO > 0) << "Invalid enable GPIO value: " << this->enableGPIO;
 
-	err = GPIOHelper::exportGPIO(this->enableGPIO);
+	err = gpio->exportGPIO(this->enableGPIO);
 	CHECK(err == 0) << "Couldn't export enable GPIO: " << err;
 
-	err = GPIOHelper::configureGPIO(this->enableGPIO, "direction", "high");
+	err = gpio->configureGPIO(this->enableGPIO, "direction", "high");
 	CHECK(err == 0) << "Couldn't configure enable GPIO: " << err;
 
 
@@ -123,6 +122,8 @@ void MAX10OutputPlugin::configureHardware(void) {
 void MAX10OutputPlugin::cleanUpHardware(void) {
 	int err;
 
+	GPIOHelper *gpio = this->handler->getGPIOHelper();
+
 	// close the SPI device
 	if(this->spiDevice != -1) {
 		err = close(this->spiDevice);
@@ -133,10 +134,10 @@ void MAX10OutputPlugin::cleanUpHardware(void) {
 	this->reset();
 
 	// Un-export the GPIOs
-	err = GPIOHelper::unExportGPIO(this->resetGPIO);
+	err = gpio->unExportGPIO(this->resetGPIO);
 	CHECK(err == 0) << "Couldn't unexport reset GPIO: " << err;
 
-	err = GPIOHelper::unExportGPIO(this->enableGPIO);
+	err = gpio->unExportGPIO(this->enableGPIO);
 	CHECK(err == 0) << "Couldn't unexport enable GPIO: " << err;
 }
 
@@ -150,16 +151,17 @@ void MAX10OutputPlugin::cleanUpHardware(void) {
   */
 void MAX10OutputPlugin::reset(void) {
 	int err;
+	GPIOHelper *gpio = this->handler->getGPIOHelper();
 
 	// pull the reset line low
-	err = GPIOHelper::writeGPIO(this->resetGPIO, false);
+	err = gpio->writeGPIO(this->resetGPIO, false);
 	CHECK(err == 0) << "Couldn't assert reset: " << err;
 
 	// wait for 10ms
 	usleep((1000 * 10));
 
 	// pull the reset line back high
-	err = GPIOHelper::writeGPIO(this->resetGPIO, true);
+	err = gpio->writeGPIO(this->resetGPIO, true);
 	CHECK(err == 0) << "Couldn't deassert reset: " << err;
 }
 

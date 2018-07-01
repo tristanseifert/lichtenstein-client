@@ -20,6 +20,8 @@
 class ProtocolHandler;
 class OutputFrame;
 
+class GPIOHelper;
+
 class LichtensteinPluginHandler : public PluginHandler {
 	friend class InputHandler;
 	friend class OutputHandler;
@@ -34,6 +36,10 @@ class LichtensteinPluginHandler : public PluginHandler {
 	public:
 		virtual INIReader *getConfig(void) {
 			return this->config;
+		}
+
+		virtual GPIOHelper *getGPIOHelper(void) {
+			return this->gpioHelper;
 		}
 
 		virtual int registerOutputPlugin(const uuid_t &uuid, output_plugin_factory_t factory);
@@ -92,6 +98,7 @@ class LichtensteinPluginHandler : public PluginHandler {
 		ProtocolHandler *protocolHandler = nullptr;
 
 		INIReader *config = nullptr;
+		GPIOHelper *gpioHelper = nullptr;
 };
 
 #endif
