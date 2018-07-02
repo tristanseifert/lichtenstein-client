@@ -8,12 +8,12 @@
 
 class GPIOHelper {
 	public:
-		int exportGPIO(int pin);
-		int unExportGPIO(int pin);
-		int configureGPIO(int pin, std::string attribute, std::string value);
+		virtual int exportGPIO(int pin);
+		virtual int unExportGPIO(int pin);
+		virtual int configureGPIO(int pin, std::string attribute, std::string value);
 
-		int readGPIO(int pin);
-		int writeGPIO(int pin, bool state);
+		virtual int readGPIO(int pin);
+		virtual int writeGPIO(int pin, bool state);
 
 	private:
 		static const std::string gpioAttribute;
