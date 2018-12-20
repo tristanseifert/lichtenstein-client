@@ -495,7 +495,7 @@ void LEDChainOutputPlugin::outputFrame(OutputFrame *frame) {
 	// handle errors
 	if(err == -1) {
 		// nack the packet
-		this->handler->acknowledgeFrame(frame);
+		this->handler->acknowledgeFrame(frame, true);
 
 		// log error
 		PLOG(ERROR) << "Couldn't write " << frame->getDataLen() << " bytes for "
