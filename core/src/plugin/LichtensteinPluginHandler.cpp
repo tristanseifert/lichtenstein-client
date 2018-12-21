@@ -4,6 +4,7 @@
 #include "../net/ProtocolHandler.h"
 
 #include "GPIOHelper.h"
+#include "PluginDiscovery.h"
 
 #include <glog/logging.h>
 
@@ -19,8 +20,11 @@
  * Sets up the plugin handler and loads the plugins.
  */
 LichtensteinPluginHandler::LichtensteinPluginHandler(INIReader *_cfg) : config(_cfg) {
-	// create GPIO helper
+  int err;
+
+	// create GPIO helper and discovery controller
 	this->gpioHelper = new GPIOHelper();
+  this->discovery = new PluginDiscovery(this);
 
 	// load plugins
 	this->loadInputPlugins();
@@ -28,6 +32,10 @@ LichtensteinPluginHandler::LichtensteinPluginHandler(INIReader *_cfg) : config(_
 
 	// init plugins
 	this->callPluginConstructors();
+
+  // discover hardware
+  err = this->discovery->discover();
+  CHECK(err == 0) << "Error discovering hw: " << err;
 }
 
 /**

@@ -1,8 +1,8 @@
 /**
  * Implements the central plugin loader and registry.
  */
-#ifndef LICHTENSTEIN_PLUGINHANDLER_H
-#define LICHTENSTEIN_PLUGINHANDLER_H
+#ifndef LICHTENSTEIN_PLUGIN_HANDLER_H
+#define LICHTENSTEIN_PLUGIN_HANDLER_H
 
 #include <lichtenstein_plugin.h>
 
@@ -21,6 +21,7 @@ class ProtocolHandler;
 class OutputFrame;
 
 class GPIOHelper;
+class PluginDiscovery;
 
 class LichtensteinPluginHandler : public PluginHandler {
 	friend class InputHandler;
@@ -99,6 +100,8 @@ class LichtensteinPluginHandler : public PluginHandler {
 
 		INIReader *config = nullptr;
 		GPIOHelper *gpioHelper = nullptr;
+
+    PluginDiscovery *discovery = nullptr;
 };
 
 #endif
