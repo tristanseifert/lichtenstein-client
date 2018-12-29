@@ -129,10 +129,9 @@ int PluginDiscovery::readConfigRom(int addr, void **data, size_t *len) {
   // open i2c device
   fd = open(busPath, O_RDWR);
   if(fd < 0) {
-    err = kDiscoveryErrIo;
-
     PLOG(ERROR) << "Couldn't open I2C bus at " << busPath;
-    goto beach;
+
+    return kDiscoveryErrIo;
   }
 
   // send slave address
@@ -140,10 +139,10 @@ int PluginDiscovery::readConfigRom(int addr, void **data, size_t *len) {
   err = ioctl(fd, I2C_SLAVE, addr);
 
   if(err < 0) {
-    err = kDiscoveryErrIoctl;
-
     PLOG(ERROR) << "Couldn't set I2C slave address";
-    goto beach;
+
+    close(fd);
+    return kDiscoveryErrIoctl;
   }
 #endif
 
@@ -162,50 +161,38 @@ int PluginDiscovery::readConfigRom(int addr, void **data, size_t *len) {
   // build i2c txn: random read starting at 0x00, 256 bytes.
   static const size_t txMsgsCount = 2;
 
-  struct i2c_msg txMsgs[txMsgsCount] = {
+  struct i2c_msg txnMsgs[txMsgsCount] = {
     {
-      .addr = addr,
-
-      .buf = readCmdBuf,
-      .len = sizeof(readCmdBuf),
-
+      .addr = static_cast<__u16>(addr),
       .flags = I2C_M_RD,
+      .len = sizeof(readCmdBuf),
+      .buf = (__u8 *) (&readCmdBuf)
     },
     {
-      .addr = addr,
-
-      .buf = readBuf,
-      .len = readBufLen,
-
+      .addr = static_cast<__u16>(addr),
       .flags = I2C_M_RD,
+      .len = readBufLen,
+      .buf = static_cast<__u8 *>(readBuf),
     }
   };
 
   struct i2c_rdwr_ioctl_data txn = {
     .msgs = txnMsgs,
-    .nMsgs = txMsgsCount
+    .nmsgs = txMsgsCount
   };
 
 
   err = ioctl(fd, I2C_RDWR, &txn);
 
   if(err < 0) {
-    err = kDiscoveryErrNoSuchDevice;
-
     PLOG(ERROR) << "Couldn't read from EEPROM (assuming no such device)";
-    goto beach;
+
+    close(fd);
+    return kDiscoveryErrNoSuchDevice;
   }
 #endif
 
   // success, write the output buffer location
   *len = readBufLen;
   return 0;
-
-  // close i2c device
-beach: ;
-if(fd != -1) {
-  close(fd);
-}
-
-  return err;
 }
