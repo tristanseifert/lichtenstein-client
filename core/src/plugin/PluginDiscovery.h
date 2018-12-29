@@ -29,7 +29,9 @@ class PluginDiscovery {
     enum {
       kDiscoveryErrNoSuchDevice    = -42000,
       kDiscoveryErrRead            = -42001,
-      kDiscoveryErrVersion        = -42002,
+      kDiscoveryErrIo              = -42002,
+      kDiscoveryErrIoctl           = -42003,
+      kDiscoveryErrVersion        = -42004,
     };
 
   private:
