@@ -275,9 +275,6 @@ void ProtocolHandler::workerEntry(void) {
 		}
 	}
 
-	// clear the timer
-	this->timer.remove(this->announcementTimer);
-
 	// clean up
 	this->cleanUpSocket();
 }
@@ -359,14 +356,29 @@ void ProtocolHandler::handlePacket(void *packet, size_t length, struct msghdr *m
 
       if(packet->dataFormat == kDataFormatRGBW) {
         bufferSz *= 4; // 4 bytes/pixel
+
+        // data is in RGBW order, we need GRBW
+        uint8_t *buf = reinterpret_cast<uint8_t *>(&packet->data);
+
+        for(int i = 0; i < packet->dataElements; i++) {
+          int off = (i * 4);
+
+          uint8_t r = buf[off + 0];
+          uint8_t g = buf[off + 1];
+          uint8_t b = buf[off + 2];
+
+          buf[off + 0] = g;
+          buf[off + 1] = r;
+          buf[off + 2] = b;
+        }
       } else {
         bufferSz *= 3; // 3 bytes/pixel
       }
 
       // ensure we don't write more than the payload length!
-      bufferSz = MIN(bufferSz, header->payloadLength);
+      // bufferSz = MIN(bufferSz, header->payloadLength);
 
-      int err = write(fd, &packet->data, bufferSz);
+      int err = write(fd, packet->data, bufferSz);
 			break;
     }
 
