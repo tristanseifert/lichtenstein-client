@@ -184,7 +184,7 @@ void ProtocolHandler::workerEntry(void) {
 	double subsequent = this->config->GetReal("client", "announcementInterval", 10);
 	const unsigned long subsequentLong = static_cast<unsigned long>(subsequent * 1000);
 
-	auto announcementTimer = this->timer.add(std::chrono::milliseconds(initialLong),
+	this->announcementTimer = this->timer.add(std::chrono::milliseconds(initialLong),
 	[this](CppTime::timer_id) {
 		// send the command
 		int blah = kWorkerAnnounce;
@@ -288,7 +288,7 @@ void ProtocolHandler::workerEntry(void) {
 	}
 
 	// clear the timer
-	this->timer.remove(announcementTimer);
+	this->timer.remove(this->announcementTimer);
 
 	// clean up
 	this->cleanUpSocket();
@@ -380,6 +380,7 @@ void ProtocolHandler::handlePacket(void *packet, size_t length, struct msghdr *m
 			} else {
 				LOG(WARNING) << "Attempted adoption by " << srcAddr << ", but we're already adopted.";
 			}
+
 			break;
 
 		// received framebuffer data?
@@ -466,7 +467,11 @@ void ProtocolHandler::handlePacket(void *packet, size_t length, struct msghdr *m
  * already adopted.
  */
 void ProtocolHandler::handleAdoption(lichtenstein_header_t *header, struct in_addr *source) {
-  // acknowledge request
+  lichtenstein_node_adoption_t *packet = reinterpret_cast<lichtenstein_node_adoption_t *>(header);
+
+  // acknowledge request (to the IP in the packet)
+  LOG(INFO) << "Acknowledge packet IP: " << std::hex << packet->ip;
+
   this->ackUnicast(header, source, false);
 
   // set flag
@@ -474,6 +479,9 @@ void ProtocolHandler::handleAdoption(lichtenstein_header_t *header, struct in_ad
 
   // set status
   StatusHandler::sharedInstance()->setAdoptionState(true);
+
+  // cancel the timer
+	this->timer.remove(this->announcementTimer);
 
   // success!
   static const socklen_t srcAddrSz = 128;

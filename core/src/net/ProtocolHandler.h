@@ -93,6 +93,7 @@ class ProtocolHandler {
 
 		// timer used for announcements/adoption
 		CppTime::Timer timer;
+    CppTime::timer_id announcementTimer;
 
 		// callback to notify plugins of received frames
 		std::function<int(OutputFrame *)> frameReceiveCallback;
