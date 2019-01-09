@@ -325,7 +325,7 @@ void ProtocolHandler::handlePacket(void *packet, size_t length, struct msghdr *m
 			// copy the address
 			memcpy(&srcAddrStruct, &info->ipi_addr, sizeof(srcAddrStruct));
 		}
-    }
+  }
 
 	// validate the packet
 	LichtensteinUtils::PacketErrors pErr;
@@ -376,12 +376,9 @@ void ProtocolHandler::handlePacket(void *packet, size_t length, struct msghdr *m
 		// node adoption?
 		case kOpcodeNodeAdoption:
 			if(this->isAdopted == false) {
-				// TODO: handle adoption
-
-				// set status
-				StatusHandler::sharedInstance()->setAdoptionState(true);
+  			this->handleAdoption(header, &srcAddrStruct);
 			} else {
-				LOG(WARNING) << "Attempted adoption by " << srcAddr << "!";
+				LOG(WARNING) << "Attempted adoption by " << srcAddr << ", but we're already adopted.";
 			}
 			break;
 
@@ -460,6 +457,32 @@ void ProtocolHandler::handlePacket(void *packet, size_t length, struct msghdr *m
 	}
 }
 
+
+
+/**
+ * Handles a node adoption.
+ *
+ * @note This assumes all preconditions are satisfied: e.g. that the node isn't
+ * already adopted.
+ */
+void ProtocolHandler::handleAdoption(lichtenstein_header_t *header, struct in_addr *source) {
+  // acknowledge request
+  this->ackUnicast(header, source, false);
+
+  // set flag
+  this->isAdopted = true;
+
+  // set status
+  StatusHandler::sharedInstance()->setAdoptionState(true);
+
+  // success!
+  static const socklen_t srcAddrSz = 128;
+  char srcAddr[srcAddrSz];
+  const char *ptr = inet_ntop(AF_INET, source, srcAddr, srcAddrSz);
+  CHECK(ptr != nullptr) << "Couldn't convert destination address";
+
+  LOG(INFO) << "Adopted by " << srcAddr;
+}
 
 
 /**

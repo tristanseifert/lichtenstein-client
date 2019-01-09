@@ -62,7 +62,9 @@ class ProtocolHandler {
 		void setUpSocket(void);
 		void cleanUpSocket(void);
 
-		void sendStatusResponse(lichtenstein_header_t *, struct in_addr *);
+    void sendStatusResponse(lichtenstein_header_t *, struct in_addr *);
+		void handleAdoption(lichtenstein_header_t *, struct in_addr *);
+
 		int sendPacketToHost(void *, size_t, struct in_addr *);
 
 		lichtenstein_header_t *createUnicastAck(lichtenstein_header_t *, bool = false);
