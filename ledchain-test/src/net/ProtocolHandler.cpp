@@ -3,8 +3,6 @@
 #include "LichtensteinUtils.h"
 #include "lichtenstein_proto.h"
 
-#include "../output/OutputFrame.h"
-
 #include "../status/StatusHandler.h"
 
 #include <glog/logging.h>
@@ -88,6 +86,10 @@ ProtocolHandler::ProtocolHandler(INIReader *_config) : config(_config) {
 	err = fcntl(this->workerPipeRead, F_SETFL, flags);
 	PCHECK(err != -1) << "Couldn't set flags, fcntl is fucked";
 
+  // open the ledchain files (TODO: check for errors lol)
+  this->ledchainFds[0] = open("/dev/ledchain0", O_RDWR);
+  this->ledchainFds[1] = open("/dev/ledchain1", O_RDWR);
+
 	// start the thread
 	this->start();
 }
@@ -106,6 +108,10 @@ ProtocolHandler::~ProtocolHandler() {
 	// close the thread communicating pipe
 	close(this->workerPipeRead);
 	close(this->workerPipeWrite);
+
+  // close ledchain files
+  close(this->ledchainFds[0]);
+  close(this->ledchainFds[1]);
 }
 
 
@@ -176,24 +182,6 @@ void ProtocolHandler::workerEntry(void) {
 	iov[0].iov_len = kClientBufferSz;
 
 	char *controlBuf = new char[kControlBufSz];
-
-	// send an announcement when the thread becomes alive and alloc timer
-	double initial = this->config->GetReal("client", "announcementIntervalInitial", 10);
-	const unsigned long initialLong = static_cast<unsigned long>(initial * 1000);
-
-	double subsequent = this->config->GetReal("client", "announcementInterval", 10);
-	const unsigned long subsequentLong = static_cast<unsigned long>(subsequent * 1000);
-
-	this->announcementTimer = this->timer.add(std::chrono::milliseconds(initialLong),
-	[this](CppTime::timer_id) {
-		// send the command
-		int blah = kWorkerAnnounce;
-		int err = write(this->workerPipeWrite, &blah, sizeof(blah));
-
-		PLOG_IF(ERROR, err < 0) << "Couldn't write announcement command";
-
-		// this->sendAnnouncement();
-	}, std::chrono::milliseconds(subsequentLong));
 
 	// main loop; wait on socket and pipe
 	while(this->run) {
@@ -355,94 +343,32 @@ void ProtocolHandler::handlePacket(void *packet, size_t length, struct msghdr *m
 	// apply the multicast and request masks
 	unsigned int type = header->opcode;
 
-	const unsigned int kMulticastMask = 0x100;
-	const unsigned int kRequestMask = 0x200;
-	const unsigned int kAckMask = 0x400;
-
-	if(isMulticast) type |= kMulticastMask;
-	if(header->payloadLength == 0) type |= kRequestMask;
-	if((header->flags & kFlagAck)) type |= kAckMask;
-
 	VLOG(3) << "Received packet with opcode " << header->opcode
 		<< "(multicast " << isMulticast << ")";
 
 	// handle the packet
 	switch(type) {
-		// status request?
-		case (kOpcodeNodeStatusReq | kRequestMask):
-			this->sendStatusResponse(header, &srcAddrStruct);
-			break;
-
-		// node adoption?
-		case kOpcodeNodeAdoption:
-			if(this->isAdopted == false) {
-  			this->handleAdoption(header, &srcAddrStruct);
-			} else {
-				LOG(WARNING) << "Attempted adoption by " << srcAddr << ", but we're already adopted.";
-			}
-
-			break;
-
 		// received framebuffer data?
-		case kOpcodeFramebufferData:
-			if(this->isAdopted) {
-				// create an output frame…
-				lichtenstein_framebuffer_data_t *packet = reinterpret_cast<lichtenstein_framebuffer_data_t *>(header);
-				OutputFrame *fr = new OutputFrame(packet, this, &srcAddrStruct);
+		case kOpcodeFramebufferData: {
+      lichtenstein_framebuffer_data_t *packet = reinterpret_cast<lichtenstein_framebuffer_data_t *>(header);
 
-				// …and run the callback.
-				err = this->frameReceiveCallback(fr);
+      int fd = this->ledchainFds[(packet->destChannel % 2)];
 
-				if(err != 0) {
-					// increment counter
-					this->framebufferPacketsDiscarded++;
+      // calculate buffer size
+      int bufferSz = packet->dataElements;
 
-					// log
-					LOG(WARNING) << "Couldn't process framebuffer data: " << err;
+      if(packet->dataFormat == kDataFormatRGBW) {
+        bufferSz *= 4; // 4 bytes/pixel
+      } else {
+        bufferSz *= 3; // 3 bytes/pixel
+      }
 
-					// create a negative ack
-					lichtenstein_header_t *hdr = fr->getAckPacket();
+      // ensure we don't write more than the payload length!
+      bufferSz = MIN(bufferSz, header->payloadLength);
 
-					hdr->flags &= ~kFlagAck;
-					hdr->flags |= ~kFlagNAck;
-
-					// send it
-					this->ackOutputFrame(fr);
-
-					// delete frame
-					delete fr;
-				}
-			} else {
-				LOG(WARNING) << "Received framebuffer data from " << srcAddr << ", but node isn't adopted, that server needs to fuck off";
-			}
+      int err = write(fd, &packet->data, bufferSz);
 			break;
-
-		// received sync output? (this _should_ be multicast but handle unicast too)
-		case kOpcodeSyncOutput:
-		case (kOpcodeSyncOutput | kMulticastMask):
-			if(this->isAdopted) {
-				lichtenstein_sync_output_t *packet = reinterpret_cast<lichtenstein_sync_output_t *>(header);
-
-				// make it a bitfield
-				std::bitset<32> channels(packet->channels);
-
-				// call into the plugin handler
-				err = this->channelOutputCallback(channels);
-
-				if(err != 0) {
-					// increment counter
-					this->outputPacketsDiscarded++;
-
-					// log
-					LOG(WARNING) << "Couldn't process channel output: " << err;
-
-					// nack
-					this->ackUnicast(header, &srcAddrStruct, true);
-				}
-			} else {
-				LOG(WARNING) << "Received output request from " << srcAddr << ", but node isn't adopted";
-			}
-			break;
+    }
 
 		// keepalive; just ack it and reset the adoption timer
 		case kOpcodeKeepalive:
@@ -459,38 +385,6 @@ void ProtocolHandler::handlePacket(void *packet, size_t length, struct msghdr *m
 }
 
 
-
-/**
- * Handles a node adoption.
- *
- * @note This assumes all preconditions are satisfied: e.g. that the node isn't
- * already adopted.
- */
-void ProtocolHandler::handleAdoption(lichtenstein_header_t *header, struct in_addr *source) {
-  lichtenstein_node_adoption_t *packet = reinterpret_cast<lichtenstein_node_adoption_t *>(header);
-
-  // acknowledge request (to the IP in the packet)
-  LOG(INFO) << "Acknowledge packet IP: " << std::hex << packet->ip;
-
-  this->ackUnicast(header, source, false);
-
-  // set flag
-  this->isAdopted = true;
-
-  // set status
-  StatusHandler::sharedInstance()->setAdoptionState(true);
-
-  // cancel the timer
-	this->timer.remove(this->announcementTimer);
-
-  // success!
-  static const socklen_t srcAddrSz = 128;
-  char srcAddr[srcAddrSz];
-  const char *ptr = inet_ntop(AF_INET, source, srcAddr, srcAddrSz);
-  CHECK(ptr != nullptr) << "Couldn't convert destination address";
-
-  LOG(INFO) << "Adopted by " << srcAddr;
-}
 
 
 /**
@@ -540,30 +434,6 @@ lichtenstein_header_t *ProtocolHandler::createUnicastAck(lichtenstein_header_t *
 
 	// done
 	return packet;
-}
-
-/**
- * Acknowledges an output frame.
- */
-void ProtocolHandler::ackOutputFrame(OutputFrame *frame, bool nack) {
-	int err;
-
-	// get the packet
-	void *packet = frame->getAckPacket();
-	struct in_addr *dest = frame->getAckDest();
-
-	// modify the packet if nack is true
-	if(nack) {
-		lichtenstein_header_t *hdr = static_cast<lichtenstein_header_t *>(packet);
-
-		// clear ACK flag, set NACK
-		hdr->flags &= ~kFlagAck;
-		hdr->flags |= kFlagNAck;
-	}
-
-	// send
-	err = this->sendPacketToHost(packet, sizeof(lichtenstein_header_t), dest);
-	LOG_IF(ERROR, err != 0) << "Couldn't send packet: " << err;
 }
 
 

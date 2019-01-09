@@ -3,7 +3,7 @@ INSTALL = /usr/bin/install
 INSTALL_PROGRAM = $(INSTALL)
 INSTALL_DATA = $(INSTALL) -m 644
 
-DIRS = core modules/out-max10 modules/out-ledchain modules/in-gpio
+DIRS = core modules/out-max10 modules/out-ledchain modules/in-gpio ledchain-test
 # the sets of directories to do various things in
 BUILDDIRS = $(DIRS:%=build-%)
 INSTALLDIRS = $(DIRS:%=install-%)
@@ -27,6 +27,5 @@ $(CLEANDIRS):
 .PHONY: subdirs $(DIRS)
 .PHONY: subdirs $(BUILDDIRS)
 .PHONY: subdirs $(INSTALLDIRS)
-.PHONY: subdirs $(TESTDIRS)
 .PHONY: subdirs $(CLEANDIRS)
-.PHONY: all install clean test
+.PHONY: all install clean
