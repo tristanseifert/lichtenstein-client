@@ -62,18 +62,18 @@ ws2811_t ledstring =
         [0] =
         {
             .gpionum = 12,
-            .count = 300,
             .invert = 0,
-            .brightness = 255,
+            .count = 300,
             .strip_type = SK6812_STRIP_RGBW,
+            .brightness = 255,
         },
 	[1] =
 	{
 		.gpionum = 13,
-		.count = 300,
 		.invert = 0,
-		.brightness = 255,
+		.count = 300,
 		.strip_type = SK6812_STRIP_RGBW,
+		.brightness = 255,
 	}/*,
 	[2] =
         {
@@ -123,7 +123,7 @@ ProtocolHandler::ProtocolHandler(INIReader *_config) : config(_config) {
 
 	// set up the strip
 	ret = ws2811_init(&ledstring);
-	PCHECK(err != WS2811_SUCCESS) << "ws2811_init failed: " << ws2811_get_return_t_str(ret);
+	CHECK(ret == WS2811_SUCCESS) << "ws2811_init failed: " << ws2811_get_return_t_str(ret);
 
 	// allocate matrix buffers
 	// for(int i = 0; i < 2; i++) {
@@ -427,9 +427,24 @@ void ProtocolHandler::handlePacket(void *packet, size_t length, struct msghdr *m
       // ensure we don't write more than the payload length!
       // bufferSz = MIN(bufferSz, header->payloadLength);
 
+			// LOG(INFO) << "Received data for channel " << channel;
+
 			memcpy(ledstring.channel[channel].leds, packet->data, bufferSz);
 			// memcpy(matrixBuf, packet->data, bufferSz);
       // int err = write(fd, packet->data, bufferSz);
+
+			// secrete data to the led strip
+			static int yen = 0;
+
+			if((yen++) % 2 == 1) {
+				ws2811_return_t ret;
+
+				// LOG(INFO) << "Secreting data";
+
+				ret = ws2811_render(&ledstring);
+				CHECK(ret == WS2811_SUCCESS) << "ws2811_render failed: " << ws2811_get_return_t_str(ret);
+			}
+
 			break;
     }
 
